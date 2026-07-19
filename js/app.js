@@ -1,4 +1,54 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Spotlight Efekti (Canvas Mask) ---
+    const SPOTLIGHT_R = 260;
+    const canvas = document.getElementById('reveal-canvas');
+    const revealDiv = document.getElementById('login-bg-reveal');
+    let ctx = canvas.getContext('2d');
+    let w, h;
+    function resize() {
+        w = window.innerWidth; h = window.innerHeight;
+        if(canvas) { canvas.width = w; canvas.height = h; }
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    let mouse = { x: -999, y: -999 };
+    let smooth = { x: -999, y: -999 };
+    window.rafRef = null;
+
+    window.addEventListener('mousemove', (e) => {
+        mouse.x = e.clientX; mouse.y = e.clientY;
+    });
+
+    function drawSpotlight() {
+        if(!canvas || !ctx) return;
+        if (mouse.x === -999) { window.rafRef = requestAnimationFrame(drawSpotlight); return; }
+        smooth.x += (mouse.x - smooth.x) * 0.1;
+        smooth.y += (mouse.y - smooth.y) * 0.1;
+        ctx.clearRect(0, 0, w, h);
+
+        const gradient = ctx.createRadialGradient(smooth.x, smooth.y, 0, smooth.x, smooth.y, SPOTLIGHT_R);
+        gradient.addColorStop(0, 'rgba(255,255,255,1)');
+        gradient.addColorStop(0.4, 'rgba(255,255,255,1)');
+        gradient.addColorStop(0.6, 'rgba(255,255,255,0.75)');
+        gradient.addColorStop(0.75, 'rgba(255,255,255,0.4)');
+        gradient.addColorStop(0.88, 'rgba(255,255,255,0.12)');
+        gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+        ctx.fillStyle = gradient; ctx.beginPath();
+        ctx.arc(smooth.x, smooth.y, SPOTLIGHT_R, 0, Math.PI * 2); ctx.fill();
+
+        const dataUrl = canvas.toDataURL();
+        if(revealDiv) {
+            revealDiv.style.maskImage = `url(${dataUrl})`;
+            revealDiv.style.webkitMaskImage = `url(${dataUrl})`;
+            revealDiv.style.maskSize = '100% 100%';
+            revealDiv.style.webkitMaskSize = '100% 100%';
+        }
+        window.rafRef = requestAnimationFrame(drawSpotlight);
+    }
+    if(canvas) window.rafRef = requestAnimationFrame(drawSpotlight);
+
     const loginSection = document.getElementById('login-section');
     const dashSection = document.getElementById('dashboard-section');
     const loginForm = document.getElementById('login-form');
@@ -63,9 +113,13 @@ document.addEventListener('DOMContentLoaded', () => {
         
         loginError.classList.add('hidden');
         
-        // Hide login, show dashboard
-        loginSection.classList.add('hidden');
-        dashSection.classList.remove('hidden');
+        // Hide login with Lithos transition
+        if(window.rafRef) cancelAnimationFrame(window.rafRef);
+        loginSection.style.opacity = '0';
+        setTimeout(() => {
+            loginSection.style.display = 'none';
+            dashSection.classList.remove('hidden');
+        }, 800);
         
         renderDashboard();
     }
@@ -78,7 +132,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('password').value = '';
         
         dashSection.classList.add('hidden');
-        loginSection.classList.remove('hidden');
+        loginSection.style.display = 'flex';
+        setTimeout(() => {
+            loginSection.style.opacity = '1';
+            if(canvas) window.rafRef = requestAnimationFrame(drawSpotlight);
+        }, 50);
     });
 
     function renderDashboard() {

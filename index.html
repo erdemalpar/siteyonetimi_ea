@@ -18,29 +18,26 @@
 <body>
     <div id="particles-js"></div> <!-- Arka plan animasyonu için -->
 
-    <!-- LOGIN SECTION -->
-    <main id="login-section" class="container glass-panel fade-in">
-        <div class="brand-header">
-            <h1 class="logo-text" id="brand-site-name">Sakin Portalı</h1>
-            <p class="subtitle">Hoş Geldiniz, Lütfen giriş yapın.</p>
-        </div>
+    <!-- LOGIN SECTION (Premium Lithos Theme) -->
+    <section id="login-section">
+        <div class="login-bg-base hero-zoom"></div>
+        <canvas id="reveal-canvas"></canvas>
+        <div id="login-bg-reveal" class="login-bg-reveal"></div>
         
-        <form id="login-form" class="form-wrapper">
-            <div class="input-group">
-                <i class="fa-solid fa-user icon"></i>
-                <input type="text" id="username" placeholder="Kullanıcı Adı" required autocomplete="off">
-            </div>
-            <div class="input-group mt-15">
-                <i class="fa-solid fa-lock icon"></i>
-                <input type="password" id="password" placeholder="Şifre" required>
-            </div>
-            <button type="submit" class="btn-primary mt-25">
-                <span>Sisteme Giriş</span>
-                <i class="fa-solid fa-arrow-right"></i>
-            </button>
-            <div id="login-error" class="error-msg hidden">Kullanıcı adı veya şifre hatalı.</div>
+        <div class="login-content">
+            <h1 class="hero-anim hero-reveal" style="animation-delay: 0.25s">
+                <span class="login-title-1 font-playfair" id="brand-site-name">Sakin Portalı</span>
+            </h1>
+        </div>
+
+        <form id="login-form" class="login-form-wrapper hero-anim hero-fade" style="animation-delay: 0.7s">
+            <h3 class="font-playfair" style="font-style: italic;">Sisteme Giriş Yapın</h3>
+            <input type="text" id="username" placeholder="Kullanıcı Adı" autocomplete="off" required>
+            <input type="password" id="password" placeholder="Parola" autocomplete="off" required>
+            <button type="submit" id="login-btn" class="btn-lithos mt-4">Giriş Yap</button>
+            <p id="login-error" class="text-danger hidden" style="font-size: 13px; margin-top: 5px;">Kullanıcı adı veya şifre hatalı.</p>
         </form>
-    </main>
+    </section>
 
     <!-- DASHBOARD SECTION (Hidden by default) -->
     <main id="dashboard-section" class="container-large hidden fade-in">
