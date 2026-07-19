@@ -159,6 +159,168 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         document.getElementById('dash-total-debt').innerText = toplamBorc.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
+
+        // GİDERLERİ YILLARA GÖRE GRUPLAYIP AKORDİYON OLARAK ÇİZDİR
+        const expensesContainer = document.getElementById('dash-expenses');
+        expensesContainer.innerHTML = '';
+        if (siteData.giderler && siteData.giderler.length > 0) {
+            const groupedExpenses = {};
+            siteData.giderler.forEach(g => {
+                if (g.durum !== 'aktif') return;
+                const dateParts = g.tarih.split('-'); // YYYY-MM-DD
+                const year = dateParts[0];
+                if (!groupedExpenses[year]) groupedExpenses[year] = [];
+                groupedExpenses[year].push(g);
+            });
+
+            const years = Object.keys(groupedExpenses).sort((a, b) => b - a); // Yeni yıldan eskiye sıralama
+            
+            if (years.length === 0) {
+                expensesContainer.innerHTML = '<p style="text-align:center; opacity:0.6; font-size:13px;">Kayıtlı harcama bulunmuyor.</p>';
+            }
+
+            years.forEach((year, index) => {
+                const totalYearExpense = groupedExpenses[year].reduce((sum, g) => sum + g.tutar, 0);
+
+                const accItem = document.createElement('div');
+                accItem.style.marginBottom = '10px';
+                accItem.style.border = '1px solid rgba(255,255,255,0.1)';
+                accItem.style.borderRadius = '6px';
+                accItem.style.overflow = 'hidden';
+
+                const accHeader = document.createElement('div');
+                accHeader.style.padding = '12px 15px';
+                accHeader.style.background = 'rgba(255,255,255,0.05)';
+                accHeader.style.cursor = 'pointer';
+                accHeader.style.display = 'flex';
+                accHeader.style.justifyContent = 'space-between';
+                accHeader.style.alignItems = 'center';
+                
+                const isOpen = index === 0; // İlk yıl açık gelsin
+                accHeader.innerHTML = `
+                    <h3 style="margin:0; font-size:15px; color:#38bdf8;">${year} Yılı</h3>
+                    <div style="text-align:right;">
+                        <span style="font-size:14px; margin-right:10px; font-weight:bold;">${totalYearExpense.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ₺</span>
+                        <span class="acc-icon" style="opacity:0.7; font-size:12px;">${isOpen ? '▼' : '▲'}</span>
+                    </div>
+                `;
+
+                const accContent = document.createElement('div');
+                accContent.className = isOpen ? '' : 'hidden';
+                accContent.style.padding = '15px';
+                accContent.style.background = 'rgba(0,0,0,0.1)';
+                accContent.style.borderTop = '1px solid rgba(255,255,255,0.05)';
+
+                let tableHTML = `
+                    <table class="modern-table" style="font-size:13px;">
+                        <thead>
+                            <tr>
+                                <th>Tarih</th>
+                                <th>Açıklama</th>
+                                <th style="text-align:right;">Tutar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                groupedExpenses[year].sort((a,b) => new Date(b.tarih) - new Date(a.tarih)).forEach(g => {
+                    const formattedDate = new Date(g.tarih).toLocaleDateString('tr-TR');
+                    tableHTML += `
+                        <tr>
+                            <td style="opacity:0.8;">${formattedDate}</td>
+                            <td>${g.aciklama}</td>
+                            <td style="text-align:right; font-weight:bold;">${g.tutar.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ₺</td>
+                        </tr>
+                    `;
+                });
+                
+                tableHTML += `</tbody></table>`;
+                accContent.innerHTML = tableHTML;
+
+                accHeader.addEventListener('click', () => {
+                    accContent.classList.toggle('hidden');
+                    const icon = accHeader.querySelector('.acc-icon');
+                    icon.innerText = accContent.classList.contains('hidden') ? '▲' : '▼';
+                });
+
+                accItem.appendChild(accHeader);
+                accItem.appendChild(accContent);
+                expensesContainer.appendChild(accItem);
+            });
+        } else {
+            expensesContainer.innerHTML = '<p style="text-align:center; opacity:0.6; font-size:13px;">Kayıtlı harcama bulunmuyor.</p>';
+        }
+
+        // HARİTAYI YÜKLE
+        const mapContainer = document.getElementById('dash-map');
+        
+        if (window.sakinMap) {
+            window.sakinMap.remove();
+            window.sakinMap = null;
+            mapContainer.innerHTML = '<div id="dash-map-empty" style="text-align:center; padding-top:100px; opacity:0.5; font-size:13px;">Konum (KML) verisi yöneticiniz tarafından girilmemiş.</div>';
+        }
+
+        if (currentUser.koordinat_dosyasi && currentUser.koordinat_formati) {
+            const emptyLabel = document.getElementById('dash-map-empty');
+            if (emptyLabel) emptyLabel.remove();
+            
+            const centerLatLng = [39.8662, 32.7215]; 
+            window.sakinMap = L.map('dash-map').setView(centerLatLng, 18);
+            
+            L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                maxZoom: 21,
+                attribution: '© Google Maps'
+            }).addTo(window.sakinMap);
+
+            let text = currentUser.koordinat_dosyasi;
+            if (text.startsWith('data:')) {
+                const base64Data = text.split(',')[1];
+                text = decodeURIComponent(escape(atob(base64Data)));
+            }
+
+            const customStyle = { color: '#3b82f6', weight: 4, fillColor: '#3b82f6', fillOpacity: 0.4 };
+            const popupContent = `<b>Benim Konumum</b><br>Blok: ${currentUser.blok}<br>Daire: ${currentUser.daire_no}`;
+
+            let layer;
+            const customLayer = L.geoJson(null, {
+                style: () => customStyle,
+                onEachFeature: function(feature, l) {
+                    l.bindPopup(popupContent);
+                    l.bindTooltip(`${currentUser.blok}/${currentUser.daire_no}`, {permanent: true, direction: 'center', className: 'parcel-label'});
+                }
+            });
+
+            try {
+                if (currentUser.koordinat_formati === 'KML') {
+                    layer = omnivore.kml.parse(text, null, customLayer);
+                } else if (currentUser.koordinat_formati === 'Geo JSON') {
+                    layer = L.geoJSON(JSON.parse(text), {
+                        style: () => customStyle,
+                        onEachFeature: function(feature, l) {
+                            l.bindPopup(popupContent);
+                            l.bindTooltip(`${currentUser.blok}/${currentUser.daire_no}`, {permanent: true, direction: 'center', className: 'parcel-label'});
+                        }
+                    });
+                }
+                
+                if (layer) {
+                    layer.addTo(window.sakinMap);
+                    layer.on('ready', function() {
+                        window.sakinMap.fitBounds(layer.getBounds());
+                    });
+                    
+                    // Zaman aşımı ile bounds fit garantisi
+                    setTimeout(() => {
+                        if (layer.getBounds && Object.keys(layer.getBounds()).length > 0) {
+                            try { window.sakinMap.fitBounds(layer.getBounds()); } catch(e){}
+                        }
+                        window.sakinMap.invalidateSize();
+                    }, 500);
+                }
+            } catch (err) {
+                console.error("Harita render hatası:", err);
+            }
+        }
     }
 
     loadData();
