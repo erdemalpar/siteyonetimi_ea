@@ -1,0 +1,8 @@
+node_modules/
+veritabani/
+*.log
+*.txt
+*.pyc
+.DS_Store
+debug_*.js
+test*.js
