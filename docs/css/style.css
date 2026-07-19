@@ -67,12 +67,7 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- LOGIN SECTION --- */
-#login-section {
-    width: 100%;
-    max-width: 450px;
-    margin: 20px;
-}
+/* --- OLD LOGIN SECTION REMOVED --- */
 
 .brand-header {
     text-align: center;
