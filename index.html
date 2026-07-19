@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sakin Portalı - Site Yönetimi</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome (Icons) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet & Omnivore -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="particles-js"></div> <!-- Arka plan animasyonu için -->
+
+    <!-- LOGIN SECTION -->
+    <main id="login-section" class="container glass-panel fade-in">
+        <div class="brand-header">
+            <h1 class="logo-text" id="brand-site-name">Sakin Portalı</h1>
+            <p class="subtitle">Hoş Geldiniz, Lütfen giriş yapın.</p>
+        </div>
+        
+        <form id="login-form" class="form-wrapper">
+            <div class="input-group">
+                <i class="fa-solid fa-user icon"></i>
+                <input type="text" id="username" placeholder="Kullanıcı Adı" required autocomplete="off">
+            </div>
+            <div class="input-group mt-15">
+                <i class="fa-solid fa-lock icon"></i>
+                <input type="password" id="password" placeholder="Şifre" required>
+            </div>
+            <button type="submit" class="btn-primary mt-25">
+                <span>Sisteme Giriş</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </button>
+            <div id="login-error" class="error-msg hidden">Kullanıcı adı veya şifre hatalı.</div>
+        </form>
+    </main>
+
+    <!-- DASHBOARD SECTION (Hidden by default) -->
+    <main id="dashboard-section" class="container-large hidden fade-in">
+        <header class="dash-header glass-panel">
+            <div class="user-info">
+                <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                <div>
+                    <h2 id="dash-user-name" class="user-name">Sakin Adı</h2>
+                    <p id="dash-apartment" class="user-apt">Blok: A - Daire: 1</p>
+                </div>
+            </div>
+            <button id="logout-btn" class="btn-outline">
+                <i class="fa-solid fa-right-from-bracket"></i> Çıkış
+            </button>
+        </header>
+
+        <div class="dash-grid mt-25">
+            <!-- Borç Kartı -->
+            <div class="stat-card glass-panel gradient-border">
+                <div class="card-icon"><i class="fa-solid fa-wallet"></i></div>
+                <div class="card-content">
+                    <h3>Güncel Borcunuz</h3>
+                    <h1 id="dash-total-debt" class="text-danger">0.00 ₺</h1>
+                    <p class="small-text">Ödenmemiş Aidat & Ekstra Giderler</p>
+                </div>
+            </div>
+            
+            <!-- Site Kasa Kartı (Genel Şeffaflık) -->
+            <div class="stat-card glass-panel">
+                <div class="card-icon"><i class="fa-solid fa-building-columns"></i></div>
+                <div class="card-content">
+                    <h3>Site Kasa Bakiyesi</h3>
+                    <h1 id="dash-site-balance" class="text-primary">0.00 ₺</h1>
+                    <p class="small-text">Şeffaf yönetim politikası gereği güncel kasa durumu.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="dash-grid mt-25">
+            <!-- Ödemeler Tablosu -->
+            <div class="data-card glass-panel flex-2">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-file-invoice-dollar"></i> Ödeme Geçmişi ve Borçlar</h2>
+                </div>
+                <div class="table-responsive">
+                    <table class="modern-table">
+                        <thead>
+                            <tr>
+                                <th>Tür</th>
+                                <th>Dönem</th>
+                                <th>Tutar</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dash-payments-body">
+                            <!-- JS ile doldurulacak -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Banka Bilgileri -->
+            <div class="data-card glass-panel flex-1">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-building-transfer"></i> Ödeme Bilgileri</h2>
+                </div>
+                <div class="bank-info mt-15">
+                    <div class="info-row">
+                        <span class="label">Banka</span>
+                        <span class="val" id="bank-name">Belirtilmemiş</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Alıcı</span>
+                        <span class="val" id="bank-receiver">Belirtilmemiş</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">IBAN</span>
+                        <span class="val" id="bank-iban" style="font-family: monospace; letter-spacing: 1px;">TR00</span>
+                    </div>
+                    
+                    <div id="qr-container" class="qr-box mt-20 hidden">
+                        <p class="small-text mb-10 text-center">Hızlı Ödeme için QR Kod:</p>
+                        <img id="bank-qr-img" src="" alt="Banka QR">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- YENİ BÖLÜM: Harita ve Site Harcamaları -->
+        <div class="dash-grid mt-25">
+            <!-- Harita Kartı -->
+            <div class="data-card glass-panel flex-1" style="min-height: 300px;">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-map-location-dot"></i> Parsel / Konum Haritam</h2>
+                </div>
+                <div id="dash-map" style="height: 250px; width: 100%; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);">
+                    <div id="dash-map-empty" style="text-align:center; padding-top:100px; opacity:0.5; font-size:13px;">Konum (KML) verisi yöneticiniz tarafından girilmemiş.</div>
+                </div>
+            </div>
+
+            <!-- Site Harcamaları Kartı -->
+            <div class="data-card glass-panel flex-2">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-chart-pie"></i> Site Harcamaları</h2>
+                </div>
+                <div id="dash-expenses" style="margin-top: 15px;">
+                    <!-- JS ile yıl bazlı akordiyon listesi doldurulacak -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
