@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderDashboard() {
         // Üst Bilgiler
         document.getElementById('dash-user-name').innerText = currentUser.sakin_ad || 'Kayıtsız Sakin';
-        document.getElementById('dash-apartment').innerText = `Blok: ${currentUser.blok || '-'} | Daire: ${currentUser.daire_no || '-'}`;
+        document.getElementById('dash-apartment').innerText = `Sokak: ${currentUser.sokak || '-'} | Daire: ${currentUser.daire_no || '-'}`;
 
         // Banka Bilgileri
         document.getElementById('bank-name').innerText = siteData.banka_adi || '-';
@@ -447,12 +447,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             
             let mapColor = '#2ecc71'; // Borcu Yok
-            if (hasAidatDebt && hasEkstraDebt) mapColor = '#a855f7';
-            else if (hasAidatDebt) mapColor = '#ef4444';
-            else if (hasEkstraDebt) mapColor = '#f97316';
-            
-            const customStyle = { color: mapColor, weight: 4, fillColor: mapColor, fillOpacity: 0.4 };
-            
             // Legend Control Ekleme
             L.Control.Legend = L.Control.extend({
                 onAdd: function(map) {
@@ -484,35 +478,78 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             new L.Control.Legend({ position: 'bottomright' }).addTo(window.sakinMap);
-            
-            // Popup Borç Listesi HTML
-            let popupBorcHTML = `<div style="margin-top:10px; border-top:1px solid #ddd; padding-top:10px;">
-                <strong style="color:#e8702a; font-size:14px; font-family:'Outfit', sans-serif;">Ödenmemiş Borçlar:</strong>
-                <ul style="margin:8px 0 0 0; padding-left:18px; font-size:13px; color:#333;">`;
-            
-            if (unpaidPaymentsList.length > 0) {
-                unpaidPaymentsList.forEach(p => {
-                    const tur = p.tur === 'ekstra' ? p.aciklama : 'Aidat';
-                    const monthName = AYLAR[p.ay - 1] || p.ay;
-                    popupBorcHTML += `<li style="margin-bottom:4px;">${monthName} ${p.yil} ${tur}: <b>${p.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>`;
-                });
-            } else {
-                popupBorcHTML += `<li style="color:#10b981; list-style-type:none; margin-left:-18px; font-weight:500;">Tebrikler, ödenmemiş borcunuz bulunmamaktadır! 🎉</li>`;
-            }
-            popupBorcHTML += `</ul></div>`;
 
-            const popupContent = `<div style="min-width: 200px; font-family:'Inter', sans-serif;">
-                <b style="font-size:15px; color:#111;">Benim Konumum</b><br>
-                <span style="color:#555;">Blok: ${currentUser.blok} | Daire: ${currentUser.daire_no}</span>
-                ${popupBorcHTML}
-            </div>`;
+            const getDaireInfo = function(feature) {
+                const lblSokak = feature.properties ? (feature.properties.sokak || feature.properties.blok || currentUser.sokak || '-') : (currentUser.sokak || '-');
+                const lblDaire = feature.properties ? (feature.properties.daire_no || currentUser.daire_no || '-') : (currentUser.daire_no || '-');
+                
+                let daire = null;
+                if (siteData && siteData.daireler) {
+                    daire = siteData.daireler.find(d => d.sokak === lblSokak && d.daire_no === lblDaire);
+                }
+                if (!daire) {
+                    daire = { sokak: lblSokak, daire_no: lblDaire, id: -1, sakin_ad: 'Bilinmiyor', adano: '-', parselno: '-', sakin_telefon: '-', sakin_mail: '-' };
+                }
 
-            let layer;
+                let hasAidatDebt = false;
+                let hasEkstraDebt = false;
+                let popupBorcHTML = `<div style="margin-top:10px; border-top:1px solid #ddd; padding-top:10px;">
+                    <strong style="color:#e8702a; font-size:14px; font-family:'Outfit', sans-serif;">Ödenmemiş Borçlar:</strong>
+                    <ul style="margin:8px 0 0 0; padding-left:18px; font-size:13px; color:#333;">`;
+                
+                let hasAnyDebt = false;
+
+                if (daire.id !== -1) {
+                    if (siteData.aidatlar) {
+                        const aidats = siteData.aidatlar.filter(a => a.daire_id === daire.id && a.odendi_mi === 0);
+                        aidats.forEach(p => {
+                            hasAidatDebt = true;
+                            hasAnyDebt = true;
+                            const monthName = AYLAR ? AYLAR[p.ay - 1] : p.ay;
+                            popupBorcHTML += `<li style="margin-bottom:4px;">${monthName} ${p.yil} Aidat: <b>${p.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>`;
+                        });
+                    }
+                    if (siteData.ekstra_odemeler) {
+                        const ekstralar = siteData.ekstra_odemeler.filter(e => e.daire_id === daire.id && e.odendi_mi === 0);
+                        ekstralar.forEach(p => {
+                            hasEkstraDebt = true;
+                            hasAnyDebt = true;
+                            popupBorcHTML += `<li style="margin-bottom:4px;">${p.yil} ${p.aciklama || 'Ekstra'}: <b>${p.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>`;
+                        });
+                    }
+                }
+
+                if (!hasAnyDebt) {
+                    popupBorcHTML += `<li style="color:#10b981; list-style-type:none; margin-left:-18px; font-weight:500;">Ödenmemiş borç bulunmamaktadır.</li>`;
+                }
+                popupBorcHTML += `</ul></div>`;
+
+                let mapColor = '#2ecc71';
+                if (hasAidatDebt && hasEkstraDebt) mapColor = '#a855f7';
+                else if (hasAidatDebt) mapColor = '#ef4444';
+                else if (hasEkstraDebt) mapColor = '#f97316';
+
+                const popupContent = `<div style="min-width: 200px; font-family:'Inter', sans-serif;">
+                    <b style="font-size:15px; color:#111;">Sakin: ${daire.sakin_ad || 'Bilinmiyor'}</b><br>
+                    <span style="color:#555;">Ada: ${daire.adano || '-'} | Parsel: ${daire.parselno || '-'}</span><br>
+                    <span style="color:#555;">Sokak: ${daire.sokak} | Daire: ${daire.daire_no}</span><br>
+                    <span style="color:#555;">Telefon: ${daire.sakin_telefon || '-'}</span><br>
+                    <span style="color:#555;">Email: ${daire.sakin_mail || '-'}</span><br>
+                    ${popupBorcHTML}
+                </div>`;
+
+                return { popupContent, mapColor, lblSokak: daire.sokak, lblDaire: daire.daire_no };
+            };
+
             const customLayer = L.geoJson(null, {
-                style: () => customStyle,
+                style: function(feature) {
+                    const info = getDaireInfo(feature);
+                    return { color: info.mapColor, weight: 4, fillColor: info.mapColor, fillOpacity: 0.4 };
+                },
                 onEachFeature: function(feature, l) {
-                    l.bindPopup(popupContent);
-                    l.bindTooltip(`${currentUser.blok}/${currentUser.daire_no}`, {permanent: true, direction: 'center', className: 'parcel-label'});
+                    const info = getDaireInfo(feature);
+                    l.bindPopup(info.popupContent);
+                    l.bindTooltip(`${info.lblSokak}/${info.lblDaire}`, {permanent: true, direction: 'center', className: 'parcel-label'});
                 }
             });
 
@@ -521,10 +558,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     layer = omnivore.kml.parse(text, null, customLayer);
                 } else if (currentUser.koordinat_formati === 'Geo JSON') {
                     layer = L.geoJSON(JSON.parse(text), {
-                        style: () => customStyle,
+                        style: function(feature) {
+                            const info = getDaireInfo(feature);
+                            return { color: info.mapColor, weight: 4, fillColor: info.mapColor, fillOpacity: 0.4 };
+                        },
                         onEachFeature: function(feature, l) {
-                            l.bindPopup(popupContent);
-                            l.bindTooltip(`${currentUser.blok}/${currentUser.daire_no}`, {permanent: true, direction: 'center', className: 'parcel-label'});
+                            const info = getDaireInfo(feature);
+                            l.bindPopup(info.popupContent);
+                            l.bindTooltip(`${info.lblSokak}/${info.lblDaire}`, {permanent: true, direction: 'center', className: 'parcel-label'});
                         }
                     });
                 }
