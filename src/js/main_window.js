@@ -394,7 +394,7 @@ async function loadDashboard(year, month) {
                     const li = document.createElement('li');
                     li.style.padding = '8px 0';
                     li.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
-                    li.innerText = `${d.blok} / ${d.daire_no} - ${d.sakin_ad || 'Bilinmiyor'}`;
+                    li.innerText = `${d.sokak} Sk. No: ${d.daire_no} - ${d.sakin_ad || 'Bilinmiyor'}`;
                     chartList.appendChild(li);
                 });
             } else {
@@ -421,7 +421,7 @@ async function loadDaireler() {
             const ada = d.adano || '-';
             const parsel = d.parselno || '-';
             const tel = d.sakin_telefon || '-';
-            option.textContent = `${d.blok} Sk. No: ${d.daire_no} - ${d.sakin_ad} (Ada/Parsel: ${ada}/${parsel} | Tel: ${tel})`;
+            option.textContent = `${d.sokak} Sk. No: ${d.daire_no} - ${d.sakin_ad} (Ada/Parsel: ${ada}/${parsel} | Tel: ${tel})`;
             select.appendChild(option);
         });
     } catch (err) {
@@ -573,7 +573,7 @@ document.getElementById('stat-odemeyen').addEventListener('click', () => {
             const li = document.createElement('li');
             li.style.padding = '10px';
             li.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
-            li.innerText = `${d.blok} Sk. No: ${d.daire_no} - ${d.sakin_ad}`;
+            li.innerText = `${d.sokak} Sk. No: ${d.daire_no} - ${d.sakin_ad}`;
             ul.appendChild(li);
         });
     }

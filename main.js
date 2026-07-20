@@ -37,7 +37,7 @@ function initializeDatabase() {
     db.serialize(() => {
         db.run(`CREATE TABLE IF NOT EXISTS daireler (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            blok TEXT,
+            sokak TEXT,
             daire_no TEXT,
             sakin_ad TEXT,
             sakin_telefon TEXT,
@@ -54,6 +54,13 @@ function initializeDatabase() {
             koordinat_formati TEXT,
             koordinat_dosyasi TEXT
         )`);
+
+        // Migration: blok -> sokak (Veritabanında önceden varsa değiştir)
+        db.run("ALTER TABLE daireler RENAME COLUMN blok TO sokak;", (err) => {
+            if(err && !err.message.includes("no such column")) {
+                console.log("Migration info:", err.message);
+            }
+        });
 
         db.run(`CREATE TABLE IF NOT EXISTS aidatlar (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -169,7 +176,7 @@ function initializeDatabase() {
             if (!err && row.count === 0) {
                 const insertQuery = db.prepare(`
                     INSERT INTO daireler 
-                    (blok, daire_no, sakin_ad, sakin_telefon, sakin_mail, sakin_daire_konum, username, password, role, il, ilce, mahalle) 
+                    (sokak, daire_no, sakin_ad, sakin_telefon, sakin_mail, sakin_daire_konum, username, password, role, il, ilce, mahalle) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Ankara', 'Çankaya', 'Lodumu(Me)')
                 `);
                 
@@ -240,7 +247,7 @@ ipcMain.handle('login', (event, {username, password}) => {
 
 ipcMain.handle('get-daireler', () => {
     return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM daireler WHERE role = 'sakin' ORDER BY blok ASC, CAST(daire_no AS INTEGER) ASC", [], (err, rows) => {
+        db.all("SELECT * FROM daireler WHERE role = 'sakin' ORDER BY sokak ASC, CAST(daire_no AS INTEGER) ASC", [], (err, rows) => {
             if (err) reject(err);
             else resolve(rows);
         });
@@ -517,7 +524,7 @@ ipcMain.handle('get-dashboard-stats', async (event, params = {}) => {
             
             // Calculate who owes aidat for the ENTIRE currentYear (up to current month if it is the current year)
             stats.odemeyenListesi = [];
-            const tumSakinler = await new Promise((res, rej) => db.all("SELECT id, blok, daire_no, sakin_ad, adano, parselno FROM daireler WHERE role = 'sakin'", [], (err, rows) => err ? rej(err) : res(rows)));
+            const tumSakinler = await new Promise((res, rej) => db.all("SELECT id, sokak, daire_no, sakin_ad, adano, parselno FROM daireler WHERE role = 'sakin'", [], (err, rows) => err ? rej(err) : res(rows)));
             
             // Check if there are any aidat definitions for the year
             const yearTanimCount = await getQuery("SELECT COUNT(*) as count FROM aidat_tanimlari WHERE yil = ?", [currentYear]);

@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const unInput = document.getElementById('username');
+    if (unInput) setTimeout(() => unInput.focus(), 100);
     // --- Spotlight Efekti (Canvas Mask) ---
     const SPOTLIGHT_R = 260;
     const canvas = document.getElementById('reveal-canvas');
@@ -208,7 +210,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const myAidats = siteData.aidatlar.filter(a => a.daire_id === currentUser.id && a.odendi_mi === 1);
             
             const allPayments = [];
-            myAidats.forEach(o => allPayments.push({...o, is_paid: true}));
+            myAidats.forEach(o => {
+                let isDefined = true;
+                if (o.tur === 'aidat' && siteData.aidat_tanimlari) {
+                    isDefined = siteData.aidat_tanimlari.some(t => t.yil === o.yil && t.ay === o.ay);
+                } else if (o.tur === 'ekstra' && siteData.ekstra_odemeler) {
+                    isDefined = siteData.ekstra_odemeler.some(e => e.yil === o.yil && e.ay === o.ay);
+                }
+                
+                if (isDefined) {
+                    allPayments.push({...o, is_paid: true});
+                }
+            });
             
             const today = new Date();
             const currentYear = today.getFullYear();
@@ -500,21 +513,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 let hasAnyDebt = false;
 
                 if (daire.id !== -1) {
-                    if (siteData.aidatlar) {
-                        const aidats = siteData.aidatlar.filter(a => a.daire_id === daire.id && a.odendi_mi === 0);
-                        aidats.forEach(p => {
-                            hasAidatDebt = true;
-                            hasAnyDebt = true;
-                            const monthName = AYLAR ? AYLAR[p.ay - 1] : p.ay;
-                            popupBorcHTML += `<li style="margin-bottom:4px;">${monthName} ${p.yil} Aidat: <b>${p.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>`;
+                    const daireAidats = (siteData.aidatlar || []).filter(a => a.daire_id === daire.id && a.odendi_mi === 1);
+                    const today = new Date();
+                    const currentYear = today.getFullYear();
+                    const currentMonth = today.getMonth() + 1;
+
+                    if (siteData.aidat_tanimlari) {
+                        siteData.aidat_tanimlari.forEach(t => {
+                            if (t.yil < currentYear || (t.yil === currentYear && t.ay <= currentMonth)) {
+                                const isPaid = daireAidats.some(o => o.yil === t.yil && o.ay === t.ay && o.tur === 'aidat');
+                                if (!isPaid) {
+                                    hasAidatDebt = true;
+                                    hasAnyDebt = true;
+                                    const monthName = typeof AYLAR !== 'undefined' ? AYLAR[t.ay - 1] : t.ay;
+                                    popupBorcHTML += `<li style="margin-bottom:4px;">${monthName} ${t.yil} Aidat: <b>${t.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>`;
+                                }
+                            }
                         });
                     }
                     if (siteData.ekstra_odemeler) {
-                        const ekstralar = siteData.ekstra_odemeler.filter(e => e.daire_id === daire.id && e.odendi_mi === 0);
-                        ekstralar.forEach(p => {
-                            hasEkstraDebt = true;
-                            hasAnyDebt = true;
-                            popupBorcHTML += `<li style="margin-bottom:4px;">${p.yil} ${p.aciklama || 'Ekstra'}: <b>${p.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>`;
+                        siteData.ekstra_odemeler.forEach(e => {
+                            if (e.yil < currentYear || (e.yil === currentYear && e.ay <= currentMonth)) {
+                                const isPaid = daireAidats.some(o => o.yil === e.yil && o.ay === e.ay && o.tur === 'ekstra');
+                                if (!isPaid) {
+                                    hasEkstraDebt = true;
+                                    hasAnyDebt = true;
+                                    popupBorcHTML += `<li style="margin-bottom:4px;">${e.yil} ${e.aciklama || 'Ekstra'}: <b>${e.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>`;
+                                }
+                            }
                         });
                     }
                 }

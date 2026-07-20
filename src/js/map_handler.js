@@ -74,33 +74,28 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         const isOwnDaire = (sessionRole === 'sakin' && daire.id.toString() === sessionDaireId);
                         const isAdmin = (sessionRole === 'yonetici' || !sessionRole);
-                            
                         let unpaidText = '';
-                        if (isAdmin || isOwnDaire) {
-                            const daireUnpaid = await ipcRenderer.invoke('get-daire-unpaid-details', daire.id);
-                            
-                            if (daireUnpaid.length > 0) {
-                                const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
-                                const formattedUnpaid = daireUnpaid.map(a => {
-                                    const tip = a.tur === 'ekstra' ? 'Ekstra' : 'Aidat';
-                                    return `${aylar[a.ay - 1]} ${a.yil} (${tip})`;
-                                }).join('<br>');
-                                unpaidText = `<br><b style="color:#e74c3c; margin-top:5px; display:inline-block;">Ödenmemiş Ödemeler:</b><br><span style="font-size:11px; color:#c0392b;">${formattedUnpaid}</span>`;
-                            } else {
-                                unpaidText = `<br><b style="color:#27ae60; margin-top:5px; display:inline-block;">Ödenmemiş Ödemeler:</b> Yok`;
-                            }
+                        const daireUnpaid = await ipcRenderer.invoke('get-daire-unpaid-details', daire.id);
+                        
+                        if (daireUnpaid.length > 0) {
+                            const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+                            const formattedUnpaid = daireUnpaid.map(a => {
+                                const tip = a.tur === 'ekstra' ? 'Ekstra' : 'Aidat';
+                                return `${aylar[a.ay - 1]} ${a.yil} (${tip})`;
+                            }).join('<br>');
+                            unpaidText = `<br><b style="color:#e74c3c; margin-top:5px; display:inline-block;">Ödenmemiş Ödemeler:</b><br><span style="font-size:11px; color:#c0392b;">${formattedUnpaid}</span>`;
+                        } else {
+                            unpaidText = `<br><b style="color:#27ae60; margin-top:5px; display:inline-block;">Ödenmemiş Ödemeler:</b> Yok`;
                         }
 
                         let popupContent = `
                             <b>Ada:</b> ${daire.adano || '-'}<br>
                             <b>Parsel:</b> ${daire.parselno || '-'}<br>
-                            <b>Sakin:</b> ${daire.sakin_ad || 'Bilinmiyor'}`;
-                            
-                        if (isAdmin || isOwnDaire) {
-                            popupContent += `<br>
+                            <b>Sokak:</b> ${daire.sokak || '-'}<br>
+                            <b>Daire No:</b> ${daire.daire_no || '-'}<br>
+                            <b>Sakin:</b> ${daire.sakin_ad || 'Bilinmiyor'}<br>
                             <b>Telefon:</b> ${daire.sakin_telefon || '-'}<br>
                             <b>Email:</b> ${daire.sakin_mail || '-'}${unpaidText}`;
-                        }
 
                         let daireColor;
                         if (sessionRole === 'sakin') {
@@ -113,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             return { color: '#3b82f6', weight: (isOwnDaire ? 4 : 2), fillColor: daireColor, fillOpacity: (sessionRole === 'sakin' ? 0.3 : 0.6) };
                         };
 
-                        const labelText = `${daire.blok} / ${daire.daire_no}`;
+                        const labelText = `${daire.sokak} / ${daire.daire_no}`;
                         const customLayer = L.geoJson(null, {
                             style: customStyle,
                                 onEachFeature: function(feature, layer) {
