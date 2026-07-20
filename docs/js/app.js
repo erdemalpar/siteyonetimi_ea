@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let w, h;
     function resize() {
         w = window.innerWidth; h = window.innerHeight;
-        if(canvas) { canvas.width = w; canvas.height = h; }
+        if (canvas) { canvas.width = w; canvas.height = h; }
     }
     window.addEventListener('resize', resize);
     resize();
@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function drawSpotlight() {
-        if(!canvas || !ctx) return;
+        if (!canvas || !ctx) return;
         if (mouse.x === -999) { window.rafRef = requestAnimationFrame(drawSpotlight); return; }
         smooth.x += (mouse.x - smooth.x) * 0.1;
         smooth.y += (mouse.y - smooth.y) * 0.1;
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.arc(smooth.x, smooth.y, SPOTLIGHT_R, 0, Math.PI * 2); ctx.fill();
 
         const dataUrl = canvas.toDataURL();
-        if(revealDiv) {
+        if (revealDiv) {
             revealDiv.style.maskImage = `url(${dataUrl})`;
             revealDiv.style.webkitMaskImage = `url(${dataUrl})`;
             revealDiv.style.maskSize = '100% 100%';
@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         window.rafRef = requestAnimationFrame(drawSpotlight);
     }
-    if(canvas) window.rafRef = requestAnimationFrame(drawSpotlight);
+    if (canvas) window.rafRef = requestAnimationFrame(drawSpotlight);
 
     const loginSection = document.getElementById('login-section');
     const dashSection = document.getElementById('dashboard-section');
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('data.json?v=' + new Date().getTime());
             if (!res.ok) throw new Error('Veri dosyası bulunamadı. Yönetici henüz verileri yüklememiş olabilir.');
             siteData = await res.json();
-            
+
             document.title = (siteData.site_adi || "Sakin Portalı") + " - Yönetim Sistemi";
             document.getElementById('brand-site-name').innerText = siteData.site_adi || 'Sakin Portalı';
 
@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (err) {
             console.error(err);
-            loginError.innerText = "Sistem verisi yüklenemedi. Yönetici verileri güncellememiş olabilir.";
+            loginError.innerText = "Sistemdeki veriler doğruyu göstermiyorsa Site Yöneticisi ile irtibata geçiniz.";
             loginError.classList.remove('hidden');
         }
     }
@@ -129,12 +129,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function login(user, isAutoLogin = false) {
         currentUser = user;
         localStorage.setItem('sakin_user', user.username);
-        
+
         loginError.classList.add('hidden');
-        
+
         if (isAutoLogin) {
             // Otomatik girişte animasyon gösterme, direkt panele geç
-            if(window.rafRef) cancelAnimationFrame(window.rafRef);
+            if (window.rafRef) cancelAnimationFrame(window.rafRef);
             loginSection.style.transition = 'none';
             loginSection.style.opacity = '0';
             loginSection.style.display = 'none';
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             // Normal girişte Lithos transition efektini oynat
-            if(window.rafRef) cancelAnimationFrame(window.rafRef);
+            if (window.rafRef) cancelAnimationFrame(window.rafRef);
             loginSection.style.transition = 'opacity 0.8s ease';
             loginSection.style.opacity = '0';
             setTimeout(() => {
@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 800);
         }
-        
+
         renderDashboard();
         resetInactivityTimer();
     }
@@ -163,15 +163,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function performLogout() {
         currentUser = null;
         localStorage.removeItem('sakin_user');
-        
+
         document.getElementById('username').value = '';
         document.getElementById('password').value = '';
-        
+
         dashSection.classList.add('hidden');
         loginSection.style.display = 'flex';
         setTimeout(() => {
             loginSection.style.opacity = '1';
-            if(canvas) window.rafRef = requestAnimationFrame(drawSpotlight);
+            if (canvas) window.rafRef = requestAnimationFrame(drawSpotlight);
         }, 50);
         if (inactivityTimer) clearTimeout(inactivityTimer);
     }
@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (siteData.aidatlar) {
             const myAidats = siteData.aidatlar.filter(a => a.daire_id === currentUser.id && a.odendi_mi === 1);
-            
+
             const allPayments = [];
             myAidats.forEach(o => {
                 let isDefined = true;
@@ -217,12 +217,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (o.tur === 'ekstra' && siteData.ekstra_odemeler) {
                     isDefined = siteData.ekstra_odemeler.some(e => e.yil === o.yil && e.ay === o.ay);
                 }
-                
+
                 if (isDefined) {
-                    allPayments.push({...o, is_paid: true});
+                    allPayments.push({ ...o, is_paid: true });
                 }
             });
-            
+
             const today = new Date();
             const currentYear = today.getFullYear();
             const currentMonth = today.getMonth() + 1;
@@ -244,11 +244,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const eDashIncomes = document.getElementById('dash-site-incomes');
             if (eDashIncomes) eDashIncomes.innerText = buYilGelir.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
-            
+
             const eDashExpenses = document.getElementById('dash-site-expenses');
             if (eDashExpenses) eDashExpenses.innerText = buYilGider.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
 
-            
+
             if (siteData.aidat_tanimlari) {
                 siteData.aidat_tanimlari.forEach(t => {
                     if (t.yil < currentYear || (t.yil === currentYear && t.ay <= currentMonth)) {
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
-            
+
             allPayments.sort((a, b) => {
                 if (a.yil !== b.yil) return b.yil - a.yil;
                 return b.ay - a.ay;
@@ -283,7 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tr = document.createElement('tr');
                 const durumClass = aidat.is_paid ? 'status-paid' : 'status-unpaid';
                 const durumText = aidat.is_paid ? 'Ödendi' : 'Ödenmedi';
-                
+
                 if (!aidat.is_paid) {
                     toplamBorc += aidat.tutar;
                     unpaidPaymentsList.push(aidat);
@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const years = Object.keys(groupedExpenses).sort((a, b) => b - a); // Yeni yıldan eskiye sıralama
-            
+
             if (years.length === 0) {
                 expensesContainer.innerHTML = '<p style="text-align:center; opacity:0.6; font-size:13px;">Kayıtlı harcama bulunmuyor.</p>';
             }
@@ -347,12 +347,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 accHeader.style.display = 'flex';
                 accHeader.style.justifyContent = 'space-between';
                 accHeader.style.alignItems = 'center';
-                
+
                 const isOpen = index === 0; // İlk yıl açık gelsin
                 accHeader.innerHTML = `
                     <h3 style="margin:0; font-size:15px; color:#38bdf8;">${year} Yılı</h3>
                     <div style="text-align:right;">
-                        <span style="font-size:14px; margin-right:10px; font-weight:bold;">${totalYearExpense.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ₺</span>
+                        <span style="font-size:14px; margin-right:10px; font-weight:bold;">${totalYearExpense.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
                         <span class="acc-icon" style="opacity:0.7; font-size:12px;">${isOpen ? '▼' : '▲'}</span>
                     </div>
                 `;
@@ -374,18 +374,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         </thead>
                         <tbody>
                 `;
-                
-                groupedExpenses[year].sort((a,b) => new Date(b.tarih) - new Date(a.tarih)).forEach(g => {
+
+                groupedExpenses[year].sort((a, b) => new Date(b.tarih) - new Date(a.tarih)).forEach(g => {
                     const formattedDate = new Date(g.tarih).toLocaleDateString('tr-TR');
                     tableHTML += `
                         <tr>
                             <td style="opacity:0.8;">${formattedDate}</td>
                             <td>${g.aciklama}</td>
-                            <td style="text-align:right; font-weight:bold;">${g.tutar.toLocaleString('tr-TR', {minimumFractionDigits: 2})} ₺</td>
+                            <td style="text-align:right; font-weight:bold;">${g.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
                         </tr>
                     `;
                 });
-                
+
                 tableHTML += `</tbody></table>`;
                 accContent.innerHTML = tableHTML;
 
@@ -405,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // HARİTAYI YÜKLE
         const mapContainer = document.getElementById('dash-map');
-        
+
         if (window.sakinMap) {
             window.sakinMap.remove();
             window.sakinMap = null;
@@ -415,10 +415,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentUser.koordinat_dosyasi && currentUser.koordinat_formati) {
             const emptyLabel = document.getElementById('dash-map-empty');
             if (emptyLabel) emptyLabel.remove();
-            
-            const centerLatLng = [39.8662, 32.7215]; 
+
+            const centerLatLng = [39.8662, 32.7215];
             window.sakinMap = L.map('dash-map').setView(centerLatLng, 18);
-            
+
             L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
                 maxZoom: 21,
                 attribution: '© Google Maps'
@@ -432,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Harita Zoom Seviyesi Kontrolü
             L.Control.ZoomLevel = L.Control.extend({
-                onAdd: function(map) {
+                onAdd: function (map) {
                     var div = L.DomUtil.create('div', 'leaflet-control leaflet-bar');
                     div.style.backgroundColor = 'rgba(0,0,0,0.6)';
                     div.style.color = '#fff';
@@ -442,11 +442,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     div.style.border = '1px solid rgba(255,255,255,0.2)';
                     div.style.borderRadius = '4px';
                     div.innerHTML = 'Zoom: ' + map.getZoom();
-                    
-                    map.on('zoomend', function() {
+
+                    map.on('zoomend', function () {
                         div.innerHTML = 'Zoom: ' + map.getZoom();
                     });
-                    
+
                     return div;
                 }
             });
@@ -458,11 +458,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (p.tur === 'ekstra') hasEkstraDebt = true;
                 else hasAidatDebt = true;
             });
-            
+
             let mapColor = '#2ecc71'; // Borcu Yok
             // Legend Control Ekleme
             L.Control.Legend = L.Control.extend({
-                onAdd: function(map) {
+                onAdd: function (map) {
                     var div = L.DomUtil.create('div', 'leaflet-control leaflet-bar legend');
                     div.style.backgroundColor = 'rgba(30, 40, 50, 0.95)';
                     div.style.color = '#fff';
@@ -472,7 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     div.style.borderRadius = '12px';
                     div.style.boxShadow = '0 4px 10px rgba(0,0,0,0.5)';
                     div.style.fontFamily = "'Inter', sans-serif";
-                    
+
                     div.innerHTML = `
                         <div style="display:flex; align-items:center; margin-bottom:10px;">
                             <span style="display:inline-block; width:16px; height:16px; border-radius:4px; background-color:#2ecc71; margin-right:12px;"></span> Borcu Yok
@@ -492,10 +492,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             new L.Control.Legend({ position: 'bottomright' }).addTo(window.sakinMap);
 
-            const getDaireInfo = function(feature) {
+            const getDaireInfo = function (feature) {
                 const lblSokak = feature.properties ? (feature.properties.sokak || feature.properties.blok || currentUser.sokak || '-') : (currentUser.sokak || '-');
                 const lblDaire = feature.properties ? (feature.properties.daire_no || currentUser.daire_no || '-') : (currentUser.daire_no || '-');
-                
+
                 let daire = null;
                 if (siteData && siteData.daireler) {
                     daire = siteData.daireler.find(d => d.sokak === lblSokak && d.daire_no === lblDaire);
@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let popupBorcHTML = `<div style="margin-top:10px; border-top:1px solid #ddd; padding-top:10px;">
                     <strong style="color:#e8702a; font-size:14px; font-family:'Outfit', sans-serif;">Ödenmemiş Borçlar:</strong>
                     <ul style="margin:8px 0 0 0; padding-left:18px; font-size:13px; color:#333;">`;
-                
+
                 let hasAnyDebt = false;
 
                 if (daire.id !== -1) {
@@ -526,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     hasAidatDebt = true;
                                     hasAnyDebt = true;
                                     const monthName = typeof AYLAR !== 'undefined' ? AYLAR[t.ay - 1] : t.ay;
-                                    popupBorcHTML += `<li style="margin-bottom:4px;">${monthName} ${t.yil} Aidat: <b>${t.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>`;
+                                    popupBorcHTML += `<li style="margin-bottom:4px;">${monthName} ${t.yil} Aidat: <b>${t.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</b></li>`;
                                 }
                             }
                         });
@@ -538,7 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (!isPaid) {
                                     hasEkstraDebt = true;
                                     hasAnyDebt = true;
-                                    popupBorcHTML += `<li style="margin-bottom:4px;">${e.yil} ${e.aciklama || 'Ekstra'}: <b>${e.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>`;
+                                    popupBorcHTML += `<li style="margin-bottom:4px;">${e.yil} ${e.aciklama || 'Ekstra'}: <b>${e.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</b></li>`;
                                 }
                             }
                         });
@@ -568,14 +568,14 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             const customLayer = L.geoJson(null, {
-                style: function(feature) {
+                style: function (feature) {
                     const info = getDaireInfo(feature);
                     return { color: info.mapColor, weight: 4, fillColor: info.mapColor, fillOpacity: 0.4 };
                 },
-                onEachFeature: function(feature, l) {
+                onEachFeature: function (feature, l) {
                     const info = getDaireInfo(feature);
                     l.bindPopup(info.popupContent);
-                    l.bindTooltip(`${info.lblSokak}/${info.lblDaire}`, {permanent: true, direction: 'center', className: 'parcel-label'});
+                    l.bindTooltip(`${info.lblSokak}/${info.lblDaire}`, { permanent: true, direction: 'center', className: 'parcel-label' });
                 }
             });
 
@@ -584,29 +584,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     layer = omnivore.kml.parse(text, null, customLayer);
                 } else if (currentUser.koordinat_formati === 'Geo JSON') {
                     layer = L.geoJSON(JSON.parse(text), {
-                        style: function(feature) {
+                        style: function (feature) {
                             const info = getDaireInfo(feature);
                             return { color: info.mapColor, weight: 4, fillColor: info.mapColor, fillOpacity: 0.4 };
                         },
-                        onEachFeature: function(feature, l) {
+                        onEachFeature: function (feature, l) {
                             const info = getDaireInfo(feature);
                             l.bindPopup(info.popupContent);
-                            l.bindTooltip(`${info.lblSokak}/${info.lblDaire}`, {permanent: true, direction: 'center', className: 'parcel-label'});
+                            l.bindTooltip(`${info.lblSokak}/${info.lblDaire}`, { permanent: true, direction: 'center', className: 'parcel-label' });
                         }
                     });
                 }
-                
+
                 if (layer) {
                     layer.addTo(window.sakinMap);
-                    layer.on('ready', function() {
-                        try { window.sakinMap.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 20 }); } catch(e){}
+                    layer.on('ready', function () {
+                        try { window.sakinMap.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 20 }); } catch (e) { }
                     });
-                    
+
                     // Zaman aşımı ile bounds fit garantisi (login transition 800ms)
                     setTimeout(() => {
                         if (window.sakinMap) window.sakinMap.invalidateSize();
                         if (layer.getBounds && Object.keys(layer.getBounds()).length > 0) {
-                            try { window.sakinMap.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 20 }); } catch(e){}
+                            try { window.sakinMap.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 20 }); } catch (e) { }
                         }
                     }, 900);
                 }

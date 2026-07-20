@@ -41,7 +41,7 @@
                 <svg width="26" height="26" viewBox="0 0 256 256" fill="#ffffff">
                     <path d="M 256 256 L 128 256 L 0 128 L 128 128 Z M 256 128 L 128 128 L 0 0 L 128 0 Z" />
                 </svg>
-                <span class="font-playfair" style="color:white; font-size:24px; font-style:italic;">Lithos</span>
+                <span class="font-playfair" style="color:white; font-size:24px; font-style:italic;">EA</span>
             </div>
             <!-- Center pill -->
             <div class="nav-pill"
@@ -55,9 +55,6 @@
             </div>
             <!-- Right -->
             <div>
-                <button
-                    style="background:white; color:#111; font-weight:600; padding:10px 24px; border-radius:99px; font-size:14px; border:none; cursor:pointer;">Sign
-                    Up</button>
             </div>
         </nav>
 
@@ -91,13 +88,13 @@
                 birleşerek yaşam alanınızı nasıl şekillendirdiğini adım adım takip etmenizi sağlar."
             </p>
             <form id="login-form" style="display:flex; flex-direction:column; gap:10px; width:100%;">
-                <input type="text" id="username" placeholder="Username (Kullanıcı Adı)" autocomplete="off" required autofocus
+                <input type="text" id="username" placeholder="Username (Kullanıcı Adı)" autocomplete="off" required
+                    autofocus
                     style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; padding:12px; border-radius:8px; outline:none; font-size:14px; font-family:'Inter', sans-serif;">
                 <input type="password" id="password" placeholder="Password (Şifre)" autocomplete="off" required
                     style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; padding:12px; border-radius:8px; outline:none; font-size:14px; font-family:'Inter', sans-serif;">
                 <button type="submit" id="login-btn"
-                    style="background:#e8702a; color:white; font-size:14px; font-weight:500; padding:12px 28px; border-radius:9999px; border:none; cursor:pointer; transition:all 0.2s; align-self:flex-start; margin-top:5px;">Start
-                    Digging</button>
+                    style="background:#e8702a; color:white; font-size:14px; font-weight:500; padding:12px 60px; border-radius:9999px; border:none; cursor:pointer; transition:all 0.2s; align-self:center; margin-top:5px;">Giriş Yap</button>
                 <p id="login-error" class="text-danger hidden" style="font-size: 13px; margin-top: 5px; color:#f87171;">
                     Invalid credentials.</p>
             </form>
@@ -131,7 +128,8 @@
             </div>
             <!-- Bu Yıl Toplanan Para -->
             <div class="stat-card glass-panel">
-                <div class="card-icon" style="color: #22c55e; background: rgba(34, 197, 94, 0.1);"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                <div class="card-icon" style="color: #22c55e; background: rgba(34, 197, 94, 0.1);"><i
+                        class="fa-solid fa-arrow-trend-up"></i></div>
                 <div class="card-content">
                     <h3>Bu Yıl Toplanan Gelir</h3>
                     <h1 id="dash-site-incomes" class="text-success">0.00 ₺</h1>
@@ -141,7 +139,8 @@
 
             <!-- Bu Yılki Site Harcamaları -->
             <div class="stat-card glass-panel">
-                <div class="card-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1);"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                <div class="card-icon" style="color: #ef4444; background: rgba(239, 68, 68, 0.1);"><i
+                        class="fa-solid fa-arrow-trend-down"></i></div>
                 <div class="card-content">
                     <h3>Bu Yılki Harcamalar</h3>
                     <h1 id="dash-site-expenses" class="text-danger">0.00 ₺</h1>
@@ -204,17 +203,22 @@
                 <div class="card-header">
                     <h2><i class="fa-solid fa-building-transfer"></i> Ödeme Bilgileri</h2>
                 </div>
-                <div class="bank-info mt-15" style="display: flex; gap: 30px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                <div class="bank-info mt-15"
+                    style="display: flex; gap: 30px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 200px;">
-                        <span class="label" style="display:block; margin-bottom:8px; color:var(--text-secondary);">Banka</span>
+                        <span class="label"
+                            style="display:block; margin-bottom:8px; color:var(--text-secondary);">Banka</span>
                         <span class="val" id="bank-name" style="font-size:1.1rem; font-weight:500;">Belirtilmemiş</span>
                     </div>
                     <div style="flex: 1; min-width: 200px;">
-                        <span class="label" style="display:block; margin-bottom:8px; color:var(--text-secondary);">Alıcı</span>
-                        <span class="val" id="bank-receiver" style="font-size:1.1rem; font-weight:500;">Belirtilmemiş</span>
+                        <span class="label"
+                            style="display:block; margin-bottom:8px; color:var(--text-secondary);">Alıcı</span>
+                        <span class="val" id="bank-receiver"
+                            style="font-size:1.1rem; font-weight:500;">Belirtilmemiş</span>
                     </div>
                     <div style="flex: 1; min-width: 250px;">
-                        <span class="label" style="display:block; margin-bottom:8px; color:var(--text-secondary);">IBAN</span>
+                        <span class="label"
+                            style="display:block; margin-bottom:8px; color:var(--text-secondary);">IBAN</span>
                         <span class="val" id="bank-iban"
                             style="font-family: monospace; letter-spacing: 1px; font-size:1.1rem; font-weight:500;">TR00</span>
                     </div>
