@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,9 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap"
+        rel="stylesheet">
     <!-- FontAwesome (Icons) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Leaflet & Omnivore -->
@@ -15,22 +18,25 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
     <div id="particles-js"></div> <!-- Arka plan animasyonu için -->
 
     <!-- LOGIN SECTION (Premium Lithos Theme - Prompt Match) -->
-    <section id="login-section" style="position:relative; width:100%; height:100dvh; overflow:hidden; background:black; font-family:'Inter', sans-serif;">
+    <section id="login-section"
+        style="position:relative; width:100%; height:100dvh; overflow:hidden; background:black; font-family:'Inter', sans-serif;">
         <!-- Z-10 Base Image -->
         <div class="login-bg-base hero-zoom" style="z-index:10;"></div>
-        
+
         <!-- Z-20 Canvas for Spotlight -->
         <canvas id="reveal-canvas" style="z-index:20;"></canvas>
-        
+
         <!-- Z-30 Reveal Image (Masked) -->
         <div id="login-bg-reveal" class="login-bg-reveal" style="z-index:30;"></div>
 
         <!-- Z-100 Navbar -->
-        <nav style="position:absolute; top:0; left:0; right:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:20px;">
+        <nav
+            style="position:absolute; top:0; left:0; right:0; z-index:100; display:flex; align-items:center; justify-content:space-between; padding:20px;">
             <div style="display:flex; align-items:center; gap:10px;">
                 <svg width="26" height="26" viewBox="0 0 256 256" fill="#ffffff">
                     <path d="M 256 256 L 128 256 L 0 128 L 128 128 Z M 256 128 L 128 128 L 0 0 L 128 0 Z" />
@@ -38,42 +44,62 @@
                 <span class="font-playfair" style="color:white; font-size:24px; font-style:italic;">Lithos</span>
             </div>
             <!-- Center pill -->
-            <div class="nav-pill" style="display:none; @media(min-width:768px){display:flex;} align-items:center; gap:4px; background:rgba(255,255,255,0.2); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.3); border-radius:99px; padding:8px;">
-                <span style="color:white; background:rgba(255,255,255,0.2); padding:6px 16px; border-radius:99px; font-size:14px; font-weight:500;">Course</span>
-                <span style="color:rgba(255,255,255,0.8); padding:6px 16px; font-size:14px; font-weight:500;">Field Guides</span>
-                <span style="color:rgba(255,255,255,0.8); padding:6px 16px; font-size:14px; font-weight:500;">Geology</span>
+            <div class="nav-pill"
+                style="display:none; @media(min-width:768px){display:flex;} align-items:center; gap:4px; background:rgba(255,255,255,0.2); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.3); border-radius:99px; padding:8px;">
+                <span
+                    style="color:white; background:rgba(255,255,255,0.2); padding:6px 16px; border-radius:99px; font-size:14px; font-weight:500;">Course</span>
+                <span style="color:rgba(255,255,255,0.8); padding:6px 16px; font-size:14px; font-weight:500;">Field
+                    Guides</span>
+                <span
+                    style="color:rgba(255,255,255,0.8); padding:6px 16px; font-size:14px; font-weight:500;">Geology</span>
             </div>
             <!-- Right -->
             <div>
-                <button style="background:white; color:#111; font-weight:600; padding:10px 24px; border-radius:99px; font-size:14px; border:none; cursor:pointer;">Sign Up</button>
+                <button
+                    style="background:white; color:#111; font-weight:600; padding:10px 24px; border-radius:99px; font-size:14px; border:none; cursor:pointer;">Sign
+                    Up</button>
             </div>
         </nav>
-        
+
         <!-- Z-50 Heading -->
-        <div class="login-content" style="position:absolute; top:14%; left:0; right:0; display:flex; flex-direction:column; align-items:center; text-align:center; z-index:50; pointer-events:none; padding:0 20px;">
+        <div class="login-content"
+            style="position:absolute; top:14%; left:0; right:0; display:flex; flex-direction:column; align-items:center; text-align:center; z-index:50; pointer-events:none; padding:0 20px;">
             <h1 style="margin:0; line-height:0.95;">
-                <span class="font-playfair hero-anim hero-reveal" style="display:block; font-style:italic; font-weight:400; font-size:4.5rem; color:white; letter-spacing:-0.05em; animation-delay: 0.25s;">Layers hold</span>
-                <span class="hero-anim hero-reveal" style="display:block; font-weight:400; font-size:4.5rem; color:white; letter-spacing:-0.08em; margin-top:-5px; animation-delay: 0.42s;">tales of time</span>
+                <span class="font-playfair hero-anim hero-reveal"
+                    style="display:block; font-style:italic; font-weight:400; font-size:4.5rem; color:white; letter-spacing:-0.05em; animation-delay: 0.25s;">Hacı
+                    Ömerağa Villaları Site Yönetimi</span>
             </h1>
         </div>
 
         <!-- Z-50 Bottom Left Paragraf -->
-        <div class="hero-anim hero-fade" style="position:absolute; bottom:56px; left:56px; max-width:260px; z-index:50; animation-delay: 0.7s;">
+        <div class="hero-anim hero-fade"
+            style="position:absolute; bottom:56px; left:56px; max-width:260px; z-index:50; animation-delay: 0.7s;">
             <p style="color:rgba(255,255,255,0.8); font-size:14px; line-height:1.6; text-align:left;">
-                Every layer of sediment records a chapter of our planet, from ancient seabeds to drifting ash, layered across millions of years beneath us.
+                Merhaba değerli komşum! Gülümsemenin ve nezaketin eksik olmadığı, huzur dolu bir gün dilerim.
+            </p>
+            <p style="color:rgba(255,255,255,0.8); font-size:14px; line-height:1.6; text-align:left;">
+                Site Yönetim Ekibi
             </p>
         </div>
 
         <!-- Z-50 Bottom Right Login Form (Replaces 'Start Digging' text block) -->
-        <div class="login-form-wrapper hero-anim hero-fade" style="position:absolute; bottom:56px; right:56px; max-width:280px; z-index:50; animation-delay: 0.85s; background:transparent; border:none; backdrop-filter:none; padding:0; align-items:flex-start;">
-            <p style="color:rgba(255,255,255,0.8); font-size:14px; line-height:1.6; margin-bottom:15px; text-align:left;">
-                Our interactive maps let you peel back the crust to trace how stones, fossils, and deep time combine to shape the ground beneath your feet.
+        <div class="login-form-wrapper hero-anim hero-fade"
+            style="position:absolute; bottom:56px; right:56px; max-width:280px; z-index:50; animation-delay: 0.85s; background:transparent; border:none; backdrop-filter:none; padding:0; align-items:flex-start;">
+            <p
+                style="color:rgba(255,255,255,0.8); font-size:14px; line-height:1.6; margin-bottom:15px; text-align:left;">
+                "İnteraktif portalımız, arka plandaki çalışmaları keşfetmenizi; bakım, planlama ve şeffaf yönetimin
+                birleşerek yaşam alanınızı nasıl şekillendirdiğini adım adım takip etmenizi sağlar."
             </p>
             <form id="login-form" style="display:flex; flex-direction:column; gap:10px; width:100%;">
-                <input type="text" id="username" placeholder="Username (Kullanıcı Adı)" autocomplete="off" required style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; padding:12px; border-radius:8px; outline:none; font-size:14px; font-family:'Inter', sans-serif;">
-                <input type="password" id="password" placeholder="Password (Şifre)" autocomplete="off" required style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; padding:12px; border-radius:8px; outline:none; font-size:14px; font-family:'Inter', sans-serif;">
-                <button type="submit" id="login-btn" style="background:#e8702a; color:white; font-size:14px; font-weight:500; padding:12px 28px; border-radius:9999px; border:none; cursor:pointer; transition:all 0.2s; align-self:flex-start; margin-top:5px;">Start Digging</button>
-                <p id="login-error" class="text-danger hidden" style="font-size: 13px; margin-top: 5px; color:#f87171;">Invalid credentials.</p>
+                <input type="text" id="username" placeholder="Username (Kullanıcı Adı)" autocomplete="off" required
+                    style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; padding:12px; border-radius:8px; outline:none; font-size:14px; font-family:'Inter', sans-serif;">
+                <input type="password" id="password" placeholder="Password (Şifre)" autocomplete="off" required
+                    style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; padding:12px; border-radius:8px; outline:none; font-size:14px; font-family:'Inter', sans-serif;">
+                <button type="submit" id="login-btn"
+                    style="background:#e8702a; color:white; font-size:14px; font-weight:500; padding:12px 28px; border-radius:9999px; border:none; cursor:pointer; transition:all 0.2s; align-self:flex-start; margin-top:5px;">Start
+                    Digging</button>
+                <p id="login-error" class="text-danger hidden" style="font-size: 13px; margin-top: 5px; color:#f87171;">
+                    Invalid credentials.</p>
             </form>
         </div>
     </section>
@@ -103,7 +129,7 @@
                     <p class="small-text">Ödenmemiş Aidat & Ekstra Giderler</p>
                 </div>
             </div>
-            
+
             <!-- Site Kasa Kartı (Genel Şeffaflık) -->
             <div class="stat-card glass-panel">
                 <div class="card-icon"><i class="fa-solid fa-building-columns"></i></div>
@@ -111,6 +137,20 @@
                     <h3>Site Kasa Bakiyesi</h3>
                     <h1 id="dash-site-balance" class="text-primary">0.00 ₺</h1>
                     <p class="small-text">Şeffaf yönetim politikası gereği güncel kasa durumu.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Harita Kartı (Büyükçene) -->
+        <div class="dash-grid mt-25">
+            <div class="data-card glass-panel" style="width: 100%; min-height: 450px;">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-map-location-dot"></i> Parsel / Konum Haritası</h2>
+                </div>
+                <div id="dash-map"
+                    style="height: 400px; width: 100%; border-radius: 12px; margin-top: 15px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);">
+                    <div id="dash-map-empty" style="text-align:center; padding-top:180px; opacity:0.5; font-size:14px;">
+                        Konum (KML) verisi yöneticiniz tarafından girilmemiş.</div>
                 </div>
             </div>
         </div>
@@ -138,47 +178,8 @@
                 </div>
             </div>
 
-            <!-- Banka Bilgileri -->
-            <div class="data-card glass-panel flex-1">
-                <div class="card-header">
-                    <h2><i class="fa-solid fa-building-transfer"></i> Ödeme Bilgileri</h2>
-                </div>
-                <div class="bank-info mt-15">
-                    <div class="info-row">
-                        <span class="label">Banka</span>
-                        <span class="val" id="bank-name">Belirtilmemiş</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">Alıcı</span>
-                        <span class="val" id="bank-receiver">Belirtilmemiş</span>
-                    </div>
-                    <div class="info-row">
-                        <span class="label">IBAN</span>
-                        <span class="val" id="bank-iban" style="font-family: monospace; letter-spacing: 1px;">TR00</span>
-                    </div>
-                    
-                    <div id="qr-container" class="qr-box mt-20 hidden">
-                        <p class="small-text mb-10 text-center">Hızlı Ödeme için QR Kod:</p>
-                        <img id="bank-qr-img" src="" alt="Banka QR">
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- YENİ BÖLÜM: Harita ve Site Harcamaları -->
-        <div class="dash-grid mt-25">
-            <!-- Harita Kartı -->
-            <div class="data-card glass-panel flex-1" style="min-height: 300px;">
-                <div class="card-header">
-                    <h2><i class="fa-solid fa-map-location-dot"></i> Parsel / Konum Haritam</h2>
-                </div>
-                <div id="dash-map" style="height: 250px; width: 100%; border-radius: 8px; margin-top: 15px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);">
-                    <div id="dash-map-empty" style="text-align:center; padding-top:100px; opacity:0.5; font-size:13px;">Konum (KML) verisi yöneticiniz tarafından girilmemiş.</div>
-                </div>
-            </div>
-
             <!-- Site Harcamaları Kartı -->
-            <div class="data-card glass-panel flex-2">
+            <div class="data-card glass-panel flex-1">
                 <div class="card-header">
                     <h2><i class="fa-solid fa-chart-pie"></i> Site Harcamaları</h2>
                 </div>
@@ -187,11 +188,42 @@
                 </div>
             </div>
         </div>
+
+        <!-- Banka Bilgileri -->
+        <div class="dash-grid mt-25">
+            <div class="data-card glass-panel" style="width: 100%;">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-building-transfer"></i> Ödeme Bilgileri</h2>
+                </div>
+                <div class="bank-info mt-15" style="display: flex; gap: 30px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <span class="label" style="display:block; margin-bottom:8px; color:var(--text-secondary);">Banka</span>
+                        <span class="val" id="bank-name" style="font-size:1.1rem; font-weight:500;">Belirtilmemiş</span>
+                    </div>
+                    <div style="flex: 1; min-width: 200px;">
+                        <span class="label" style="display:block; margin-bottom:8px; color:var(--text-secondary);">Alıcı</span>
+                        <span class="val" id="bank-receiver" style="font-size:1.1rem; font-weight:500;">Belirtilmemiş</span>
+                    </div>
+                    <div style="flex: 1; min-width: 250px;">
+                        <span class="label" style="display:block; margin-bottom:8px; color:var(--text-secondary);">IBAN</span>
+                        <span class="val" id="bank-iban"
+                            style="font-family: monospace; letter-spacing: 1px; font-size:1.1rem; font-weight:500;">TR00</span>
+                    </div>
+
+                    <div id="qr-container" class="qr-box hidden" style="width: 120px;">
+                        <p class="small-text mb-10 text-center" style="margin-bottom:5px;">Hızlı Ödeme:</p>
+                        <img id="bank-qr-img" src="" alt="Banka QR" style="width:100%; border-radius: 8px;">
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js"></script>
+    <script
+        src="https://api.tiles.mapbox.com/mapbox.js/plugins/leaflet-omnivore/v0.3.1/leaflet-omnivore.min.js"></script>
     <script src="js/app.js"></script>
 </body>
+
 </html>

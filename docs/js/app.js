@@ -60,6 +60,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 
+    // --- SESSION INACTIVITY TIMER (15 Min) ---
+    let inactivityTimer = null;
+    const INACTIVITY_LIMIT = 15 * 60 * 1000; // 15 dakika
+
+    function resetInactivityTimer() {
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+        if (currentUser) {
+            inactivityTimer = setTimeout(() => {
+                alert("15 dakikadan uzun süre işlem yapmadığınız için oturumunuz sonlandırıldı.");
+                performLogout();
+            }, INACTIVITY_LIMIT);
+        }
+    }
+
+    ['mousemove', 'mousedown', 'keypress', 'touchmove', 'scroll'].forEach(evt => {
+        document.addEventListener(evt, resetInactivityTimer, true);
+    });
     // Verileri Yükle
     async function loadData() {
         try {
@@ -119,12 +136,16 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             loginSection.style.display = 'none';
             dashSection.classList.remove('hidden');
+            if (window.sakinMap) {
+                window.sakinMap.invalidateSize();
+            }
         }, 800);
         
         renderDashboard();
+        resetInactivityTimer();
     }
 
-    logoutBtn.addEventListener('click', () => {
+    function performLogout() {
         currentUser = null;
         localStorage.removeItem('sakin_user');
         
@@ -137,6 +158,11 @@ document.addEventListener('DOMContentLoaded', () => {
             loginSection.style.opacity = '1';
             if(canvas) window.rafRef = requestAnimationFrame(drawSpotlight);
         }, 50);
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+    }
+
+    logoutBtn.addEventListener('click', () => {
+        performLogout();
     });
 
     function renderDashboard() {
@@ -177,35 +203,64 @@ document.addEventListener('DOMContentLoaded', () => {
         const kasaBakiyesi = toplamGelir - toplamGider;
         document.getElementById('dash-site-balance').innerText = kasaBakiyesi.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
 
-        // Kişisel Borç Hesaplama & Tablo
         const tbody = document.getElementById('dash-payments-body');
         tbody.innerHTML = '';
 
         let toplamBorc = 0;
+        let unpaidPaymentsList = []; // Ödenmeyen borçları haritada göstermek için toplayacağız
 
         if (siteData.aidatlar) {
-            const myAidats = siteData.aidatlar.filter(a => a.daire_id === currentUser.id);
+            const myAidats = siteData.aidatlar.filter(a => a.daire_id === currentUser.id && a.odendi_mi === 1);
             
-            myAidats.sort((a, b) => {
+            const allPayments = [];
+            myAidats.forEach(o => allPayments.push({...o, is_paid: true}));
+            
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth() + 1;
+            
+            if (siteData.aidat_tanimlari) {
+                siteData.aidat_tanimlari.forEach(t => {
+                    if (t.yil < currentYear || (t.yil === currentYear && t.ay <= currentMonth)) {
+                        const isPaid = myAidats.some(o => o.yil === t.yil && o.ay === t.ay && o.tur === 'aidat');
+                        if (!isPaid) {
+                            allPayments.push({ ...t, tur: 'aidat', aciklama: 'Aidat', is_paid: false });
+                        }
+                    }
+                });
+            }
+            if (siteData.ekstra_odemeler) {
+                siteData.ekstra_odemeler.forEach(e => {
+                    if (e.yil < currentYear || (e.yil === currentYear && e.ay <= currentMonth)) {
+                        const isPaid = myAidats.some(o => o.yil === e.yil && o.ay === e.ay && o.tur === 'ekstra');
+                        if (!isPaid) {
+                            allPayments.push({ ...e, tur: 'ekstra', aciklama: e.aciklama, is_paid: false });
+                        }
+                    }
+                });
+            }
+            
+            allPayments.sort((a, b) => {
                 if (a.yil !== b.yil) return b.yil - a.yil;
                 return b.ay - a.ay;
             });
 
-            if (myAidats.length === 0) {
+            if (allPayments.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="4" class="text-center">Ödeme kaydı bulunamadı.</td></tr>';
             }
 
-            myAidats.forEach(aidat => {
+            allPayments.forEach(aidat => {
                 const tr = document.createElement('tr');
-                const durumClass = aidat.odendi_mi === 1 ? 'status-paid' : 'status-unpaid';
-                const durumText = aidat.odendi_mi === 1 ? 'Ödendi' : 'Ödenmedi';
+                const durumClass = aidat.is_paid ? 'status-paid' : 'status-unpaid';
+                const durumText = aidat.is_paid ? 'Ödendi' : 'Ödenmedi';
                 
-                if (aidat.odendi_mi === 0) {
+                if (!aidat.is_paid) {
                     toplamBorc += aidat.tutar;
+                    unpaidPaymentsList.push(aidat);
                 }
 
                 tr.innerHTML = `
-                    <td><i class="fa-solid ${aidat.tur === 'ekstra' ? 'fa-tools' : 'fa-home'}"></i> ${aidat.tur === 'ekstra' ? 'Ekstra Gider' : 'Aidat'}</td>
+                    <td><i class="fa-solid ${aidat.tur === 'ekstra' ? 'fa-tools' : 'fa-home'}"></i> ${aidat.tur === 'ekstra' ? (aidat.aciklama || 'Ekstra Gider') : 'Aidat'}</td>
                     <td>${AYLAR[aidat.ay - 1] || aidat.ay} ${aidat.yil}</td>
                     <td>${aidat.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
                     <td><span class="status-badge ${durumClass}">${durumText}</span></td>
@@ -336,8 +391,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 text = decodeURIComponent(escape(atob(base64Data)));
             }
 
+            // Harita Zoom Seviyesi Kontrolü
+            L.Control.ZoomLevel = L.Control.extend({
+                onAdd: function(map) {
+                    var div = L.DomUtil.create('div', 'leaflet-control leaflet-bar');
+                    div.style.backgroundColor = 'rgba(0,0,0,0.6)';
+                    div.style.color = '#fff';
+                    div.style.padding = '4px 8px';
+                    div.style.fontSize = '12px';
+                    div.style.fontWeight = 'bold';
+                    div.style.border = '1px solid rgba(255,255,255,0.2)';
+                    div.style.borderRadius = '4px';
+                    div.innerHTML = 'Zoom: ' + map.getZoom();
+                    
+                    map.on('zoomend', function() {
+                        div.innerHTML = 'Zoom: ' + map.getZoom();
+                    });
+                    
+                    return div;
+                }
+            });
+            new L.Control.ZoomLevel({ position: 'topright' }).addTo(window.sakinMap);
+
             const customStyle = { color: '#3b82f6', weight: 4, fillColor: '#3b82f6', fillOpacity: 0.4 };
-            const popupContent = `<b>Benim Konumum</b><br>Blok: ${currentUser.blok}<br>Daire: ${currentUser.daire_no}`;
+            
+            // Popup Borç Listesi HTML
+            let popupBorcHTML = \`<div style="margin-top:10px; border-top:1px solid #ddd; padding-top:10px;">
+                <strong style="color:#e8702a; font-size:14px; font-family:'Outfit', sans-serif;">Ödenmemiş Borçlar:</strong>
+                <ul style="margin:8px 0 0 0; padding-left:18px; font-size:13px; color:#333;">\`;
+            
+            if (unpaidPaymentsList.length > 0) {
+                unpaidPaymentsList.forEach(p => {
+                    const tur = p.tur === 'ekstra' ? p.aciklama : 'Aidat';
+                    const monthName = AYLAR[p.ay - 1] || p.ay;
+                    popupBorcHTML += \`<li style="margin-bottom:4px;">\${monthName} \${p.yil} \${tur}: <b>\${p.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>\`;
+                });
+            } else {
+                popupBorcHTML += \`<li style="color:#10b981; list-style-type:none; margin-left:-18px; font-weight:500;">Tebrikler, ödenmemiş borcunuz bulunmamaktadır! 🎉</li>\`;
+            }
+            popupBorcHTML += \`</ul></div>\`;
+
+            const popupContent = \`<div style="min-width: 200px; font-family:'Inter', sans-serif;">
+                <b style="font-size:15px; color:#111;">Benim Konumum</b><br>
+                <span style="color:#555;">Blok: \${currentUser.blok} | Daire: \${currentUser.daire_no}</span>
+                \${popupBorcHTML}
+            </div>\`;
 
             let layer;
             const customLayer = L.geoJson(null, {
@@ -364,16 +462,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (layer) {
                     layer.addTo(window.sakinMap);
                     layer.on('ready', function() {
-                        window.sakinMap.fitBounds(layer.getBounds());
+                        try { window.sakinMap.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 20 }); } catch(e){}
                     });
                     
-                    // Zaman aşımı ile bounds fit garantisi
+                    // Zaman aşımı ile bounds fit garantisi (login transition 800ms)
                     setTimeout(() => {
+                        if (window.sakinMap) window.sakinMap.invalidateSize();
                         if (layer.getBounds && Object.keys(layer.getBounds()).length > 0) {
-                            try { window.sakinMap.fitBounds(layer.getBounds()); } catch(e){}
+                            try { window.sakinMap.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 20 }); } catch(e){}
                         }
-                        window.sakinMap.invalidateSize();
-                    }, 500);
+                    }, 900);
                 }
             } catch (err) {
                 console.error("Harita render hatası:", err);
