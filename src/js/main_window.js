@@ -1,3 +1,31 @@
+// --- AUTO SYNC (GITHUB & LOCAL DATA) INTERCEPTOR ---
+const originalInvoke = ipcRenderer.invoke;
+ipcRenderer.invoke = async function(channel, ...args) {
+    const result = await originalInvoke.apply(this, [channel, ...args]);
+    
+    // Veritabanını değiştiren işlemler listesi
+    const modifyingChannels = [
+        'update-daire-info', 'set-aidat-tanimi', 'delete-aidat-tanimi', 
+        'delete-all-aidat-tanimlari', 'add-ekstra-odeme', 'delete-ekstra-odeme',
+        'set-aidat-odeme-durumu', 'add-gider', 'update-gider', 'set-gider-durum', 
+        'delete-gider', 'save-ayarlar', 'add-aidat', 'update-aidat-durum'
+    ];
+    
+    if (modifyingChannels.includes(channel)) {
+        // İşlem bittikten sonra arkada otomatik olarak GitHub ve local docs'a sync et
+        originalInvoke.apply(this, ['publish-to-github']).then(res => {
+            if (res && !res.success && res.error && !res.error.includes("ayarlanmamış")) {
+                console.error("Auto GitHub Sync Hatası:", res.error);
+            } else if (res && res.success) {
+                console.log("Değişiklikler başarıyla GitHub'a otomatik yüklendi!");
+            }
+        }).catch(err => console.error("Auto Sync tetiklenemedi:", err));
+    }
+    
+    return result;
+};
+// ---------------------------------------------------
+
 let currentDaireId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -478,11 +506,11 @@ async function loadGelirGiderTab() {
                 window.faturaCache[gider.id] = gider.fatura_dosyasi;
             }
             
-            let durumBtn = gider.durum === 'pasif' 
-                ? `<button class="btn-danger" style="padding: 2px 8px; font-size:11px; opacity:0.8;" onclick="toggleGiderDurum(${gider.id}, 'aktif')">Pasif</button>`
-                : `<button class="btn-primary" style="padding: 2px 8px; font-size:11px; background:#10b981;" onclick="toggleGiderDurum(${gider.id}, 'pasif')">Aktif</button>`;
+            let durumBtn = gider.durum === 2 
+                ? `<button class="btn-danger" style="padding: 2px 8px; font-size:11px; opacity:0.8;" onclick="toggleGiderDurum(${gider.id}, 1)">Pasif</button>`
+                : `<button class="btn-primary" style="padding: 2px 8px; font-size:11px; background:#10b981;" onclick="toggleGiderDurum(${gider.id}, 2)">Aktif</button>`;
             
-            tr.style.opacity = gider.durum === 'pasif' ? '0.5' : '1';
+            tr.style.opacity = gider.durum === 2 ? '0.5' : '1';
             
             tr.innerHTML = `
                 <td>${gider.tarih}</td>
@@ -667,7 +695,8 @@ async function loadAidatGecmisi(daire_id) {
         // Fetch required data
         const aidatTanimlari = await ipcRenderer.invoke('get-aidat-tanimlari', yil);
         const ekstraOdemeler = await ipcRenderer.invoke('get-ekstra-odemeler', yil);
-        const fiiliOdemeler = await ipcRenderer.invoke('get-aidatlar', daire_id); // we'll filter by yil in code
+        const fiiliOdemeler = await ipcRenderer.invoke('get-aidatlar', daire_id); 
+        const dosyalar = await ipcRenderer.invoke('get-file-list', 'aidatlar');
 
         const tbody = document.getElementById('aidat-tbody');
         tbody.innerHTML = '';
@@ -679,10 +708,11 @@ async function loadAidatGecmisi(daire_id) {
             const tr = document.createElement('tr');
             
             // 1. Standart Aidat Hesaplama
-            const tanim = aidatTanimlari.find(t => t.ay === ay);
+            const tanim = aidatTanimlari.find(t => t.yil === yil && t.ay === ay);
             const standartTutar = tanim ? tanim.tutar : 0;
-            const standartOdemeKaydi = fiiliOdemeler.find(o => o.yil === yil && o.ay === ay && o.tur === 'aidat' && o.odendi_mi === 1);
-            const isStandartOdendi = !!standartOdemeKaydi;
+            const stdOdemeKaydi = fiiliOdemeler.find(o => o.yil === yil && o.ay === ay && o.tur === 'aidat');
+            const isStandartOdendi = stdOdemeKaydi ? stdOdemeKaydi.odendi_mi === 1 : false;
+            const aidat_id = stdOdemeKaydi ? stdOdemeKaydi.id : null;
 
             // 2. Ekstra Ödemeler Hesaplama
             const ekstraAylar = ekstraOdemeler.filter(e => e.ay === ay);
@@ -692,11 +722,22 @@ async function loadAidatGecmisi(daire_id) {
                 ekstraOdemelerHtml = '<span style="opacity:0.5">-</span>';
             } else {
                 ekstraAylar.forEach(ekstra => {
-                    const ekstraOdemeKaydi = fiiliOdemeler.find(o => o.yil === yil && o.ay === ay && o.tur === 'ekstra' && o.tutar === ekstra.tutar && o.odendi_mi === 1);
-                    const isEkstraOdendi = !!ekstraOdemeKaydi;
+                    const isEkstraPaidDb = fiiliOdemeler.find(o => o.yil === yil && o.ay === ay && o.tur === 'ekstra' && o.tutar === ekstra.tutar);
+                    const isEkstraOdendi = isEkstraPaidDb ? isEkstraPaidDb.odendi_mi === 1 : false;
+                    const ekstra_id = isEkstraPaidDb ? isEkstraPaidDb.id : null;
                     
                     const chkDisabled = !isYonetici ? 'disabled' : '';
                     const chkChecked = isEkstraOdendi ? 'checked' : '';
+                    
+                    let dekontBtn = '';
+                    if (isEkstraOdendi && ekstra_id) {
+                        const hasDekont = dosyalar.find(d => d.related_id === ekstra_id);
+                        if (hasDekont) {
+                            dekontBtn = `<button onclick="viewDekontAdmin('aidatlar', ${ekstra_id})" class="btn-primary" style="margin-left:5px; padding:2px 5px; font-size:10px;"><i class="fa-solid fa-eye"></i> Dekont</button> <button onclick="uploadDekont('aidatlar', ${ekstra_id})" class="btn-secondary" style="padding:2px 5px; font-size:10px;"><i class="fa-solid fa-sync"></i></button>`;
+                        } else {
+                            dekontBtn = `<button onclick="uploadDekont('aidatlar', ${ekstra_id})" class="btn-success" style="margin-left:5px; padding:2px 5px; font-size:10px;"><i class="fa-solid fa-upload"></i> Yükle</button>`;
+                        }
+                    }
                     
                     ekstraOdemelerHtml += `
                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; background:rgba(0,0,0,0.2); padding:5px; border-radius:4px;">
@@ -704,10 +745,13 @@ async function loadAidatGecmisi(daire_id) {
                                 <strong style="font-size:11px;">${ekstra.aciklama}</strong><br>
                                 <span style="color:#e1b12c; font-weight:bold;">${formatMoney(ekstra.tutar)}</span>
                             </div>
-                            <label style="cursor:pointer; display:flex; align-items:center; gap:5px; font-size:12px;">
-                                <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${ekstra.tutar}, this.checked, 'ekstra')">
-                                ${isEkstraOdendi ? '<span style="color:#2ecc71">Ödendi</span>' : '<span style="color:#e74c3c">Bekliyor</span>'}
-                            </label>
+                            <div style="display:flex; align-items:center;">
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:5px; font-size:12px;">
+                                    <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${ekstra.tutar}, this.checked, 'ekstra')">
+                                    ${isEkstraOdendi ? '<span style="color:#2ecc71">Ödendi</span>' : '<span style="color:#e74c3c">Bekliyor</span>'}
+                                </label>
+                                ${dekontBtn}
+                            </div>
                         </div>
                     `;
                 });
@@ -720,21 +764,31 @@ async function loadAidatGecmisi(daire_id) {
             } else {
                 const chkDisabled = !isYonetici ? 'disabled' : '';
                 const chkChecked = isStandartOdendi ? 'checked' : '';
+                
+                let dekontBtn = '';
+                if (isStandartOdendi && aidat_id) {
+                    const hasDekont = dosyalar.find(d => d.related_id === aidat_id);
+                    if (hasDekont) {
+                        dekontBtn = `<button onclick="viewDekontAdmin('aidatlar', ${aidat_id})" class="btn-primary" style="margin-left:5px; padding:2px 5px; font-size:10px;"><i class="fa-solid fa-eye"></i> Dekont</button> <button onclick="uploadDekont('aidatlar', ${aidat_id})" class="btn-secondary" style="padding:2px 5px; font-size:10px;"><i class="fa-solid fa-sync"></i></button>`;
+                    } else {
+                        dekontBtn = `<button onclick="uploadDekont('aidatlar', ${aidat_id})" class="btn-success" style="margin-left:5px; padding:2px 5px; font-size:10px;"><i class="fa-solid fa-upload"></i> Yükle</button>`;
+                    }
+                }
+
                 standartHtml = `
                     <div style="display:flex; align-items:center; justify-content:space-between;">
                         <span style="font-weight:bold; color:#3498db;">${formatMoney(standartTutar)}</span>
-                        <label style="cursor:pointer; display:flex; align-items:center; gap:5px; font-size:12px;">
-                            <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${standartTutar}, this.checked, 'aidat')">
-                            ${isStandartOdendi ? '<span style="color:#2ecc71">Ödendi</span>' : '<span style="color:#e74c3c">Bekliyor</span>'}
-                        </label>
+                        <div style="display:flex; align-items:center;">
+                            <label style="cursor:pointer; display:flex; align-items:center; gap:5px; font-size:12px;">
+                                <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${standartTutar}, this.checked, 'aidat')">
+                                ${isStandartOdendi ? '<span style="color:#2ecc71">Ödendi</span>' : '<span style="color:#e74c3c">Bekliyor</span>'}
+                            </label>
+                            ${dekontBtn}
+                        </div>
                     </div>
                 `;
             }
-
-            // Eğer hem standart aidat yok hem de ekstra ödeme yoksa satırı silikleştirebiliriz, ama aylar hep görünmeli.
             
-            // Genel Durum Sütunu (Tümü ödendi mi?)
-            // This is just a visual summary column
             const hasAnyDebt = (standartTutar > 0 && !isStandartOdendi) || (ekstraAylar.length > 0 && ekstraAylar.some(e => !fiiliOdemeler.find(o => o.yil === yil && o.ay === ay && o.tur === 'ekstra' && o.tutar === e.tutar && o.odendi_mi === 1)));
             const hasAnyExpected = standartTutar > 0 || ekstraAylar.length > 0;
             
@@ -753,6 +807,7 @@ async function loadAidatGecmisi(daire_id) {
         }
     } catch (err) {
         console.error("Aidat takibi yüklenemedi", err);
+        alert("Hata oluştu: " + (err.message || err));
     }
 }
 
@@ -760,12 +815,38 @@ window.toggleOdemeDurum = async function(daire_id, yil, ay, tutar, is_paid, tur)
     try {
         await ipcRenderer.invoke('set-aidat-odeme-durumu', { daire_id, yil, ay, tutar, odendi_mi: is_paid, tur });
         loadAidatGecmisi(daire_id);
-        loadDashboard(); // Grafikleri güncelle
+        loadDashboard(); 
         if (window.loadParcelsToMap) window.loadParcelsToMap();
     } catch (err) {
         console.error(err);
         alert('Ödeme durumu güncellenemedi.');
-        loadAidatGecmisi(daire_id); // Revert UI
+        loadAidatGecmisi(daire_id); 
+    }
+}
+
+window.uploadDekont = async function(category, id) {
+    const file = await ipcRenderer.invoke('select-file');
+    if (!file) return;
+    try {
+        await ipcRenderer.invoke('save-file', { category, related_id: id, fileData: file.data, fileName: file.name });
+        alert('Dekont başarıyla yüklendi.');
+        if(typeof loadAidatGecmisi !== 'undefined' && currentDaireId) loadAidatGecmisi(currentDaireId);
+    } catch (e) {
+        alert('Yükleme hatası: ' + e);
+    }
+}
+
+window.viewDekontAdmin = async function(category, id) {
+    try {
+        const files = await ipcRenderer.invoke('get-file-list', category);
+        const file = files.find(f => f.related_id === id);
+        if (file) {
+            const blob = new Blob([new Uint8Array(file.data)], {type: 'application/pdf'});
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        }
+    } catch (e) {
+        alert('Dosya açılamadı.');
     }
 }
 
@@ -825,6 +906,24 @@ function initAidatAyarlari() {
         });
     }
 
+    const silTumAidat = document.getElementById('sil-tum-aidat-tanimlari');
+    if (silTumAidat) {
+        silTumAidat.addEventListener('click', async () => {
+            if (!confirm("Tüm yıllara ait standart aidat tanımlarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz!")) return;
+            try {
+                await ipcRenderer.invoke('delete-all-aidat-tanimlari');
+                alert("Tüm aidat tanımlamaları başarıyla silindi.");
+                loadAidatTanimlariListesi();
+                if (typeof currentDaireId !== 'undefined' && currentDaireId) loadAidatGecmisi(currentDaireId);
+                loadDashboard();
+                if (window.loadParcelsToMap) window.loadParcelsToMap();
+            } catch(e) {
+                console.error(e);
+                alert("Silinirken hata oluştu.");
+            }
+        });
+    }
+
     // Ekstra Ödeme Kaydet
     const kaydetEkstra = document.getElementById('kaydet-ekstra-odeme');
     if (kaydetEkstra) {
@@ -855,30 +954,111 @@ function initAidatAyarlari() {
 }
 
 async function loadAidatTanimlariListesi() {
-    const yil = parseInt(document.getElementById('ayarlar-aidat-yil').value);
-    const tbody = document.getElementById('ayarlar-aidat-tbody');
-    if (!tbody) return;
+    const container = document.getElementById('ayarlar-aidat-container');
+    if (!container) return;
     
-    tbody.innerHTML = '';
+    container.innerHTML = '';
     try {
-        const tanimlar = await ipcRenderer.invoke('get-aidat-tanimlari', yil);
+        const tanimlar = await ipcRenderer.invoke('get-aidat-tanimlari');
         const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
         
-        // Sort by month
-        tanimlar.sort((a, b) => a.ay - b.ay);
-        
+        // Group by year
+        const grouped = {};
         tanimlar.forEach(t => {
-            const tr = document.createElement('tr');
-            tr.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
-            tr.innerHTML = `
-                <td style="padding:10px;">${t.yil}</td>
-                <td style="padding:10px;">${aylar[t.ay - 1]}</td>
-                <td style="padding:10px; font-weight:bold;">${formatMoney(t.tutar)}</td>
+            if (!grouped[t.yil]) grouped[t.yil] = [];
+            grouped[t.yil].push(t);
+        });
+        
+        const years = Object.keys(grouped).sort((a,b) => b - a); // descending
+        
+        if (years.length === 0) {
+            container.innerHTML = '<p style="text-align:center; opacity:0.6; font-size:13px; padding:10px;">Henüz aidat tanımı yok.</p>';
+            return;
+        }
+
+        years.forEach((yil, index) => {
+            const yilsTanimlar = grouped[yil];
+            yilsTanimlar.sort((a, b) => a.ay - b.ay);
+            
+            const div = document.createElement('div');
+            div.style.background = 'rgba(255,255,255,0.02)';
+            div.style.borderRadius = '6px';
+            div.style.border = '1px solid rgba(255,255,255,0.05)';
+            div.style.overflow = 'hidden';
+            
+            const isFirst = index === 0;
+
+            let tbodyHtml = '';
+            yilsTanimlar.forEach(t => {
+                tbodyHtml += `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <td style="padding:10px;">${t.yil}</td>
+                        <td style="padding:10px;">${aylar[t.ay - 1]}</td>
+                        <td style="padding:10px; font-weight:bold;">${formatMoney(t.tutar)}</td>
+                        <td style="padding:10px; text-align: center;">
+                            <button class="btn-primary" style="padding:4px 8px; font-size:11px; margin-right:5px;" onclick="duzenleAidatTanimi(${t.yil}, ${t.ay}, ${t.tutar})">Düzelt</button>
+                            <button class="btn-danger" style="padding:4px 8px; font-size:11px;" onclick="silAidatTanimi(${t.yil}, ${t.ay})">Sil</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            div.innerHTML = `
+                <div style="padding: 10px 15px; cursor: pointer; background: rgba(255,255,255,0.03); display: flex; justify-content: space-between; align-items: center;" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span').innerText = this.nextElementSibling.classList.contains('hidden') ? '▼' : '▲';">
+                    <h3 style="margin: 0; font-size: 15px; font-weight: 500;">${yil} Yılı Aidatları</h3>
+                    <span style="opacity: 0.7; font-size: 12px;">${isFirst ? '▲' : '▼'}</span>
+                </div>
+                <div class="${isFirst ? '' : 'hidden'}" style="padding: 10px;">
+                    <table style="width: 100%; text-align: left; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                <th style="padding: 10px; opacity: 0.8; font-size: 13px;">Yıl</th>
+                                <th style="padding: 10px; opacity: 0.8; font-size: 13px;">Ay</th>
+                                <th style="padding: 10px; opacity: 0.8; font-size: 13px;">Tutar (₺)</th>
+                                <th style="padding: 10px; opacity: 0.8; font-size: 13px; text-align: center;">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tbodyHtml}
+                        </tbody>
+                    </table>
+                </div>
             `;
-            tbody.appendChild(tr);
+            container.appendChild(div);
         });
     } catch(e) {
         console.error(e);
+    }
+}
+
+window.silAidatTanimi = async function(yil, ay) {
+    if (!confirm("Bu aidat tanımını silmek istediğinize emin misiniz?")) return;
+    try {
+        await ipcRenderer.invoke('delete-aidat-tanimi', { yil, ay });
+        loadAidatTanimlariListesi();
+        if (currentDaireId) loadAidatGecmisi(currentDaireId);
+        loadDashboard();
+    } catch(e) {
+        console.error(e);
+        alert("Silinirken hata oluştu.");
+    }
+}
+
+window.duzenleAidatTanimi = async function(yil, ay, mevcutTutar) {
+    const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+    const yeniTutar = prompt(`${yil} yılı ${aylar[ay - 1]} ayı aidatı için yeni tutarı girin (₺):`, mevcutTutar);
+    if (yeniTutar !== null) {
+        const tutar = parseFloat(yeniTutar);
+        if (isNaN(tutar) || tutar <= 0) return alert("Lütfen geçerli bir tutar girin.");
+        try {
+            await ipcRenderer.invoke('set-aidat-tanimi', { yil, ay, tutar });
+            loadAidatTanimlariListesi();
+            if (currentDaireId) loadAidatGecmisi(currentDaireId);
+            loadDashboard();
+        } catch(e) {
+            console.error(e);
+            alert("Düzeltilirken hata oluştu.");
+        }
     }
 }
 
@@ -962,6 +1142,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 await ipcRenderer.invoke('save-ayarlar', data);
+                await ipcRenderer.invoke('export-local-data-json');
                 alert('Banka ve Site bilgileri başarıyla kaydedildi.');
             } catch (err) {
                 console.error(err);
@@ -1232,30 +1413,57 @@ async function loadSakinOdemelerim(daireId) {
     
     try {
         const odemeler = await ipcRenderer.invoke('get-aidatlar', daireId);
+        const unpaidList = await ipcRenderer.invoke('get-daire-unpaid-details', daireId);
         
         const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+        const dosyalar = await ipcRenderer.invoke('get-file-list', 'aidatlar');
         
-        // Sadece ödenmiş olanları gösterelim (zaten kendi ödediği demiş)
+        // Ödenmiş olanlar
         const odendi_kayitlari = odemeler.filter(o => o.odendi_mi === 1);
         
-        if (odendi_kayitlari.length === 0) {
+        const allPayments = [];
+        odendi_kayitlari.forEach(o => {
+            allPayments.push({...o, is_paid: true});
+        });
+        unpaidList.forEach(u => {
+            allPayments.push({...u, is_paid: false});
+        });
+        
+        allPayments.sort((a,b) => {
+            if (b.yil !== a.yil) return b.yil - a.yil;
+            return b.ay - a.ay;
+        });
+
+        if (allPayments.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; opacity: 0.6;">Hiç ödeme kaydınız bulunmuyor.</td></tr>`;
             return;
         }
 
-        odendi_kayitlari.forEach(o => {
+        allPayments.forEach(o => {
             const tr = document.createElement('tr');
             tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
             
             let ayAciklama = aylar[o.ay - 1];
             let turLabel = o.tur === 'aidat' ? '<span class="status-badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8;">Standart Aidat</span>' : '<span class="status-badge" style="background: rgba(232, 112, 42, 0.2); color: #e8702a;">Ekstra Ödeme</span>';
             
+            let dekontBtn = '';
+            if (o.is_paid && o.id) {
+                const hasDekont = dosyalar.find(d => d.related_id === o.id);
+                if (hasDekont) {
+                    dekontBtn = `<button onclick="viewDekontAdmin('aidatlar', ${o.id})" class="btn-primary" style="margin-left:8px; padding:2px 6px; font-size:10px;"><i class="fa-solid fa-file-invoice"></i> Dekont</button>`;
+                }
+            }
+
+            let durumHtml = o.is_paid 
+                ? '<span class="status-badge status-paid"><i class="fa fa-check"></i> Ödendi</span>' + dekontBtn
+                : '<span class="status-badge status-unpaid" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border-radius: 20px; padding: 4px 10px; font-size: 11px;"><i class="fa fa-times"></i> Ödenmedi</span>';
+
             tr.innerHTML = `
                 <td style="padding: 12px; font-weight: bold;">${o.yil}</td>
                 <td style="padding: 12px;">${ayAciklama}</td>
                 <td style="padding: 12px;">${turLabel}</td>
-                <td style="padding: 12px; font-weight: bold; color: #10b981;">${formatMoney(o.tutar)}</td>
-                <td style="padding: 12px;"><span class="status-badge status-paid"><i class="fa fa-check"></i> Ödendi</span></td>
+                <td style="padding: 12px; font-weight: bold; color: ${o.is_paid ? '#10b981' : '#ef4444'};">${formatMoney(o.tutar)}</td>
+                <td style="padding: 12px;">${durumHtml}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -1289,11 +1497,11 @@ async function loadSakinGiderler() {
                 window.faturaCache[gider.id] = gider.fatura_dosyasi;
             }
             
-            let durumSpan = gider.durum === 'pasif' 
+            let durumSpan = gider.durum === 2 
                 ? '<span class="status-badge" style="background: rgba(239,68,68,0.2); color:#ef4444;">İptal/Pasif</span>'
                 : '<span class="status-badge status-paid"><i class="fa fa-check"></i> Aktif</span>';
             
-            tr.style.opacity = gider.durum === 'pasif' ? '0.5' : '1';
+            tr.style.opacity = gider.durum === 2 ? '0.5' : '1';
             
             tr.innerHTML = `
                 <td style="padding: 12px;">${gider.tarih}</td>

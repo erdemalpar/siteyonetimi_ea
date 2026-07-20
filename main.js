@@ -87,7 +87,34 @@ function initializeDatabase() {
             aciklama TEXT,
             tutar REAL,
             fatura_dosyasi TEXT,
-            durum TEXT DEFAULT 'aktif'
+            durum INTEGER DEFAULT 1
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS dosyalar (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            related_table TEXT,
+            related_id INTEGER,
+            file_data TEXT,
+            file_type TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            durum INTEGER DEFAULT 1
+        )`);
+
+        const tables = ['daireler', 'aidatlar', 'aidat_tanimlari', 'ekstra_odemeler', 'giderler', 'dosyalar', 'ayarlar'];
+        tables.forEach(table => {
+            db.run(`ALTER TABLE ${table} ADD COLUMN durum INTEGER DEFAULT 1`, (err) => {
+                // Column already exists hatasını yoksay
+            });
+        });
+
+        // Eski 'aktif' ve 'pasif' değerlerini 1 ve 2'ye çevir (giderler tablosunda kullanılıyordu)
+        db.run(`UPDATE giderler SET durum = 1 WHERE durum = 'aktif'`);
+        db.run(`UPDATE giderler SET durum = 2 WHERE durum = 'pasif'`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS ayarlar (
+            anahtar TEXT PRIMARY KEY,
+            deger TEXT,
+            durum INTEGER DEFAULT 1
         )`);
 
         const sakinlerData = [
@@ -301,9 +328,9 @@ ipcMain.handle('update-aidat-durum', (event, id, odendi_mi) => {
     });
 });
 
-ipcMain.handle('get-aidat-tanimlari', (event, yil) => {
+ipcMain.handle('get-aidat-tanimlari', (event) => {
     return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM aidat_tanimlari WHERE yil = ?", [yil], (err, rows) => {
+        db.all("SELECT * FROM aidat_tanimlari", [], (err, rows) => {
             if (err) reject(err);
             else resolve(rows);
         });
@@ -319,6 +346,30 @@ ipcMain.handle('set-aidat-tanimi', (event, { yil, ay, tutar }) => {
                 else resolve(this.changes);
             }
         );
+    });
+});
+
+ipcMain.handle('delete-aidat-tanimi', (event, { yil, ay }) => {
+    return new Promise((resolve, reject) => {
+        db.run("DELETE FROM aidatlar WHERE yil = ? AND ay = ? AND tur = 'aidat'", [yil, ay], (err1) => {
+            if (err1) console.error("Aidatlar silinirken hata:", err1);
+            db.run("DELETE FROM aidat_tanimlari WHERE yil = ? AND ay = ?", [yil, ay], function(err2) {
+                if (err2) reject(err2);
+                else resolve(this.changes);
+            });
+        });
+    });
+});
+
+ipcMain.handle('delete-all-aidat-tanimlari', (event) => {
+    return new Promise((resolve, reject) => {
+        db.run("DELETE FROM aidatlar WHERE tur = 'aidat'", [], (err1) => {
+            if (err1) console.error("Aidatlar silinirken hata:", err1);
+            db.run("DELETE FROM aidat_tanimlari", function(err2) {
+                if (err2) reject(err2);
+                else resolve(this.changes);
+            });
+        });
     });
 });
 
@@ -345,9 +396,16 @@ ipcMain.handle('add-ekstra-odeme', (event, { yil, ay, aciklama, tutar }) => {
 
 ipcMain.handle('delete-ekstra-odeme', (event, id) => {
     return new Promise((resolve, reject) => {
-        db.run("DELETE FROM ekstra_odemeler WHERE id = ?", [id], function(err) {
-            if (err) reject(err);
-            else resolve(this.changes);
+        db.get("SELECT yil, ay, tutar FROM ekstra_odemeler WHERE id = ?", [id], (err, row) => {
+            if (err || !row) return reject(err || new Error("Kayıt bulunamadı"));
+            
+            db.run("DELETE FROM aidatlar WHERE yil = ? AND ay = ? AND tutar = ? AND tur = 'ekstra'", [row.yil, row.ay, row.tutar], (err1) => {
+                if (err1) console.error("Ekstra aidatlar silinirken hata:", err1);
+                db.run("DELETE FROM ekstra_odemeler WHERE id = ?", [id], function(err2) {
+                    if (err2) reject(err2);
+                    else resolve(this.changes);
+                });
+            });
         });
     });
 });
@@ -391,7 +449,7 @@ ipcMain.handle('get-giderler', () => {
 ipcMain.handle('add-gider', (event, {tarih, aciklama, tutar, fatura_dosyasi, durum}) => {
     return new Promise((resolve, reject) => {
         db.run("INSERT INTO giderler (tarih, aciklama, tutar, fatura_dosyasi, durum) VALUES (?, ?, ?, ?, ?)",
-            [tarih, aciklama, tutar, fatura_dosyasi || null, durum || 'aktif'],
+            [tarih, aciklama, tutar, fatura_dosyasi || null, durum || 1],
             function(err) {
                 if (err) reject(err);
                 else resolve(this.lastID);
@@ -403,7 +461,7 @@ ipcMain.handle('add-gider', (event, {tarih, aciklama, tutar, fatura_dosyasi, dur
 ipcMain.handle('update-gider', (event, {id, tarih, aciklama, tutar, fatura_dosyasi, durum}) => {
     return new Promise((resolve, reject) => {
         let query = "UPDATE giderler SET tarih = ?, aciklama = ?, tutar = ?, durum = ?";
-        let params = [tarih, aciklama, tutar, durum || 'aktif'];
+        let params = [tarih, aciklama, tutar, durum || 1];
         if (fatura_dosyasi !== undefined) {
             query += ", fatura_dosyasi = ?";
             params.push(fatura_dosyasi);
@@ -516,7 +574,7 @@ ipcMain.handle('get-gelir-gider-stats', async (event, year) => {
             const oncekiYillarGelir = prevGelirRow.sum || 0;
             
             // Önceki yılların toplam gideri
-            const prevGiderRow = await getQuery("SELECT SUM(tutar) as sum FROM giderler WHERE CAST(strftime('%Y', tarih) AS INTEGER) < ? AND durum != 'pasif'", [year]);
+            const prevGiderRow = await getQuery("SELECT SUM(tutar) as sum FROM giderler WHERE CAST(strftime('%Y', tarih) AS INTEGER) < ? AND durum != 2", [year]);
             const oncekiYillarGider = prevGiderRow.sum || 0;
             
             const devredenBakiye = oncekiYillarGelir - oncekiYillarGider;
@@ -526,7 +584,7 @@ ipcMain.handle('get-gelir-gider-stats', async (event, year) => {
             const buYilGelir = currentGelirRow.sum || 0;
             
             // Bu yılın toplam gideri
-            const currentGiderRow = await getQuery("SELECT SUM(tutar) as sum FROM giderler WHERE strftime('%Y', tarih) = ? AND durum != 'pasif'", [year.toString()]);
+            const currentGiderRow = await getQuery("SELECT SUM(tutar) as sum FROM giderler WHERE strftime('%Y', tarih) = ? AND durum != 2", [year.toString()]);
             const buYilGider = currentGiderRow.sum || 0;
             
             const guncelBakiye = devredenBakiye + buYilGelir - buYilGider;
@@ -639,6 +697,56 @@ ipcMain.handle('save-ayarlar', (event, data) => {
     });
 });
 
+ipcMain.handle('export-local-data-json', async () => {
+    return new Promise((resolve) => {
+        db.all("SELECT * FROM ayarlar", [], (err, rows) => {
+            if (err) return resolve({ success: false, error: err.message });
+            
+            const ayarlar = {};
+            rows.forEach(r => { ayarlar[r.anahtar] = r.deger; });
+
+            db.all("SELECT * FROM daireler WHERE role != 'yonetici'", [], (err, daireler) => {
+                if (err) return resolve({ success: false, error: err.message });
+                db.all("SELECT * FROM aidatlar", [], (err, aidatlar) => {
+                    db.all("SELECT * FROM ekstra_odemeler", [], (err, ekstralar) => {
+                        db.all("SELECT * FROM giderler", [], (err, giderler) => {
+                            db.all("SELECT * FROM aidat_tanimlari", [], (err, aidatTanimlari) => {
+                                db.all("SELECT * FROM dosyalar", [], (err, dosyalar) => {
+                                    
+                                    const exportData = {
+                                        site_adi: ayarlar['site_adi'] || "Site Yönetimi",
+                                        banka_adi: ayarlar['banka_adi'] || "",
+                                        iban: ayarlar['iban'] || "",
+                                        banka_qr: ayarlar['banka_qr'] || "",
+                                        daireler: daireler,
+                                        aidatlar: aidatlar,
+                                        ekstra_odemeler: ekstralar,
+                                        giderler: giderler,
+                                        aidat_tanimlari: aidatTanimlari,
+                                        dosyalar: dosyalar,
+                                        son_guncelleme: new Date().toISOString()
+                                    };
+
+                                    const docsDir = path.join(__dirname, 'docs');
+                                    if (!fs.existsSync(docsDir)) {
+                                        fs.mkdirSync(docsDir);
+                                    }
+
+                                    const dataPath = path.join(docsDir, 'data.json');
+                                    fs.writeFileSync(dataPath, JSON.stringify(exportData, null, 2), 'utf-8');
+                                    resolve({ success: true });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
+
+
+
 // GitHub Publish Handler
 ipcMain.handle('publish-to-github', async (event, args) => {
     return new Promise((resolve) => {
@@ -661,29 +769,31 @@ ipcMain.handle('publish-to-github', async (event, args) => {
                     db.all("SELECT * FROM ekstra_odemeler", [], (err, ekstralar) => {
                         db.all("SELECT * FROM giderler", [], (err, giderler) => {
                             db.all("SELECT * FROM aidat_tanimlari", [], (err, aidatTanimlari) => {
-                                
-                                const exportData = {
-                                    site_adi: ayarlar['site_adi'] || "Site Yönetimi",
-                                    banka_adi: ayarlar['banka_adi'] || "",
-                                    iban: ayarlar['iban'] || "",
-                                    banka_qr: ayarlar['banka_qr'] || "",
-                                    daireler: daireler,
-                                    aidatlar: aidatlar,
-                                    ekstra_odemeler: ekstralar,
-                                    giderler: giderler,
-                                    aidat_tanimlari: aidatTanimlari,
-                                    son_guncelleme: new Date().toISOString()
-                                };
+                                db.all("SELECT * FROM dosyalar", [], (err, dosyalar) => {
+                                    
+                                    const exportData = {
+                                        site_adi: ayarlar['site_adi'] || "Site Yönetimi",
+                                        banka_adi: ayarlar['banka_adi'] || "",
+                                        iban: ayarlar['iban'] || "",
+                                        banka_qr: ayarlar['banka_qr'] || "",
+                                        daireler: daireler,
+                                        aidatlar: aidatlar,
+                                        ekstra_odemeler: ekstralar,
+                                        giderler: giderler,
+                                        aidat_tanimlari: aidatTanimlari,
+                                        dosyalar: dosyalar,
+                                        son_guncelleme: new Date().toISOString()
+                                    };
 
-                                const docsDir = path.join(__dirname, 'docs');
-                                if (!fs.existsSync(docsDir)) {
-                                    fs.mkdirSync(docsDir);
-                                }
+                                    const docsDir = path.join(__dirname, 'docs');
+                                    if (!fs.existsSync(docsDir)) {
+                                        fs.mkdirSync(docsDir);
+                                    }
 
-                                const dataPath = path.join(docsDir, 'data.json');
-                                fs.writeFileSync(dataPath, JSON.stringify(exportData, null, 2), 'utf-8');
+                                    const dataPath = path.join(docsDir, 'data.json');
+                                    fs.writeFileSync(dataPath, JSON.stringify(exportData, null, 2), 'utf-8');
 
-                                const urlWithoutProtocol = githubUrl.replace(/^https?:\/\//, '');
+                                    const urlWithoutProtocol = githubUrl.replace(/^https?:\/\//, '');
                                 const authUrl = `https://${githubPat}@${urlWithoutProtocol}`;
                                 const execOptions = { cwd: __dirname };
 
@@ -734,3 +844,49 @@ ipcMain.handle('publish-to-github', async (event, args) => {
         });
     });
 });
+});
+
+// Dosyalar işlemleri (Dekont vs.)
+ipcMain.handle('select-file', async () => {
+    const result = await require('electron').dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Dekont/Dosya', extensions: ['pdf', 'png', 'jpg', 'jpeg'] }]
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    
+    const filePath = result.filePaths[0];
+    const fileData = fs.readFileSync(filePath);
+    const fileName = require('path').basename(filePath);
+    
+    return { data: fileData, name: fileName };
+});
+
+ipcMain.handle('save-file', (event, { category, related_id, fileData, fileName }) => {
+    return new Promise((resolve, reject) => {
+        db.run("DELETE FROM dosyalar WHERE related_table = ? AND related_id = ?", [category, related_id], function(err) {
+            if (err) return reject(err);
+            db.run("INSERT INTO dosyalar (related_table, related_id, file_data, file_type) VALUES (?, ?, ?, ?)",
+                [category, related_id, fileData, fileName], function(err2) {
+                    if (err2) reject(err2); else resolve(this.lastID);
+                });
+        });
+    });
+});
+
+ipcMain.handle('get-file', (event, { related_table, related_id }) => {
+    return new Promise((resolve, reject) => {
+        db.get("SELECT file_data, file_type FROM dosyalar WHERE related_table = ? AND related_id = ?", [related_table, related_id], (err, row) => {
+            if (err) reject(err); else resolve(row);
+        });
+    });
+});
+
+ipcMain.handle('get-file-list', (event, related_table) => {
+    return new Promise((resolve, reject) => {
+        // file_data kolonunu 'data' olarak map ediyoruz çünkü frontend 'file.data' bekliyor
+        db.all("SELECT related_id, file_type as name, file_data as data FROM dosyalar WHERE related_table = ?", [related_table], (err, rows) => {
+            if (err) reject(err); else resolve(rows);
+        });
+    });
+});
+
