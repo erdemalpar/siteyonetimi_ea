@@ -272,11 +272,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     unpaidPaymentsList.push(aidat);
                 }
 
+                let dekontButonu = '';
+                if (aidat.is_paid && siteData.dosyalar) {
+                    const dekont = siteData.dosyalar.find(d => d.related_table === 'aidatlar' && d.related_id === aidat.id);
+                    if (dekont) {
+                        dekontButonu = `<button onclick="window.viewDekont('${dekont.file_data}')" style="margin-left:10px; padding:4px 8px; font-size:11px; background:#3498db; color:white; border:none; border-radius:3px; cursor:pointer;"><i class="fa-solid fa-eye"></i> Dekont</button>`;
+                    }
+                }
+
                 tr.innerHTML = `
                     <td><i class="fa-solid ${aidat.tur === 'ekstra' ? 'fa-tools' : 'fa-home'}"></i> ${aidat.tur === 'ekstra' ? (aidat.aciklama || 'Ekstra Gider') : 'Aidat'}</td>
                     <td>${AYLAR[aidat.ay - 1] || aidat.ay} ${aidat.yil}</td>
                     <td>${aidat.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
-                    <td><span class="status-badge ${durumClass}">${durumText}</span></td>
+                    <td><span class="status-badge ${durumClass}">${durumText}</span>${dekontButonu}</td>
                 `;
                 tbody.appendChild(tr);
             });
