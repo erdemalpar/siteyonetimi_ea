@@ -1,3 +1,21 @@
+function calculateGecikmeTazminati(tutar, yil, ay, is_paid = false, odeme_tarihi = null, db_kayitli_faiz = 0) {
+    if (is_paid && db_kayitli_faiz > 0) return db_kayitli_faiz;
+    if (is_paid && !db_kayitli_faiz) return 0;
+    
+    const vadeTarihi = new Date(yil, ay, 0); // O ayın son günü
+    vadeTarihi.setHours(23, 59, 59, 999);
+    
+    const bitisTarihi = odeme_tarihi ? new Date(odeme_tarihi) : new Date();
+    
+    let gunFarki = Math.floor((bitisTarihi - vadeTarihi) / (1000 * 60 * 60 * 24));
+    if (gunFarki <= 0) return 0;
+    
+    const gunlukFaizOrani = 0.05 / 30;
+    const gecikmeTazminati = tutar * gunlukFaizOrani * gunFarki;
+    
+    return Math.round(gecikmeTazminati * 100) / 100;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const unInput = document.getElementById('username');
     if (unInput) setTimeout(() => unInput.focus(), 100);
@@ -284,8 +302,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const durumClass = aidat.is_paid ? 'status-paid' : 'status-unpaid';
                 const durumText = aidat.is_paid ? 'Ödendi' : 'Ödenmedi';
 
+                const gecikme = calculateGecikmeTazminati(aidat.tutar, aidat.yil, aidat.ay, aidat.is_paid, aidat.odeme_tarihi, aidat.gecikme_tazminati_borcu);
+                aidat.gecikmeTutari = gecikme;
+
                 if (!aidat.is_paid) {
-                    toplamBorc += aidat.tutar;
+                    toplamBorc += (aidat.tutar + gecikme);
                     unpaidPaymentsList.push(aidat);
                 }
 
@@ -300,7 +321,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 tr.innerHTML = `
                     <td><i class="fa-solid ${aidat.tur === 'ekstra' ? 'fa-tools' : 'fa-home'}"></i> ${aidat.tur === 'ekstra' ? (aidat.aciklama || 'Ekstra Gider') : 'Aidat'}</td>
                     <td>${AYLAR[aidat.ay - 1] || aidat.ay} ${aidat.yil}</td>
-                    <td>${aidat.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                    <td>${aidat.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                        ${gecikme > 0 ? `<br><small style="color:#ef4444;">+${gecikme.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺ Faiz</small>` : ''}
+                    </td>
                     <td><span class="status-badge ${durumClass}">${durumText}</span>${dekontButonu}</td>
                 `;
                 tbody.appendChild(tr);
@@ -526,7 +549,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                     hasAidatDebt = true;
                                     hasAnyDebt = true;
                                     const monthName = typeof AYLAR !== 'undefined' ? AYLAR[t.ay - 1] : t.ay;
-                                    popupBorcHTML += `<li style="margin-bottom:4px;">${monthName} ${t.yil} Aidat: <b>${t.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</b></li>`;
+                                    
+                                    // Dinamik gecikme tazminatı hesaplama
+                                    const gecikme = calculateGecikmeTazminati(t.tutar, t.yil, t.ay, false, null, 0);
+                                    let gecikmeHtml = gecikme > 0 ? ` <span style="color:#ef4444; font-size:11px;">(+${gecikme.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺ Faiz)</span>` : '';
+                                    
+                                    popupBorcHTML += `<li style="margin-bottom:4px;">${monthName} ${t.yil} Aidat: <b>${t.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</b>${gecikmeHtml}</li>`;
                                 }
                             }
                         });
@@ -538,7 +566,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (!isPaid) {
                                     hasEkstraDebt = true;
                                     hasAnyDebt = true;
-                                    popupBorcHTML += `<li style="margin-bottom:4px;">${e.yil} ${e.aciklama || 'Ekstra'}: <b>${e.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</b></li>`;
+                                    
+                                    // Dinamik gecikme tazminatı hesaplama
+                                    const gecikme = calculateGecikmeTazminati(e.tutar, e.yil, e.ay, false, null, 0);
+                                    let gecikmeHtml = gecikme > 0 ? ` <span style="color:#ef4444; font-size:11px;">(+${gecikme.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺ Faiz)</span>` : '';
+                                    
+                                    popupBorcHTML += `<li style="margin-bottom:4px;">${e.yil} ${e.aciklama || 'Ekstra'}: <b>${e.tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</b>${gecikmeHtml}</li>`;
                                 }
                             }
                         });

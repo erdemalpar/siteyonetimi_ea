@@ -1,7 +1,25 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
+
+function calculateGecikmeTazminati(tutar, yil, ay, is_paid = false, odeme_tarihi = null, db_kayitli_faiz = 0) {
+    if (is_paid && db_kayitli_faiz > 0) return db_kayitli_faiz;
+    if (is_paid && !db_kayitli_faiz) return 0;
+    
+    const vadeTarihi = new Date(yil, ay, 0); // O ayın son günü
+    vadeTarihi.setHours(23, 59, 59, 999);
+    
+    const bitisTarihi = odeme_tarihi ? new Date(odeme_tarihi) : new Date();
+    
+    let gunFarki = Math.floor((bitisTarihi - vadeTarihi) / (1000 * 60 * 60 * 24));
+    if (gunFarki <= 0) return 0;
+    
+    const gunlukFaizOrani = 0.05 / 30;
+    const gecikmeTazminati = tutar * gunlukFaizOrani * gunFarki;
+    
+    return Math.round(gecikmeTazminati * 100) / 100;
+}
 const { exec } = require('child_process');
 
 const dbDir = path.join(__dirname, 'veritabani');
@@ -109,10 +127,12 @@ function initializeDatabase() {
 
         const tables = ['daireler', 'aidatlar', 'aidat_tanimlari', 'ekstra_odemeler', 'giderler', 'dosyalar', 'ayarlar'];
         tables.forEach(table => {
-            db.run(`ALTER TABLE ${table} ADD COLUMN durum INTEGER DEFAULT 1`, (err) => {
-                // Column already exists hatasını yoksay
-            });
+            db.run(`ALTER TABLE ${table} ADD COLUMN durum INTEGER DEFAULT 1`, (err) => {});
         });
+        
+        db.run(`ALTER TABLE aidatlar ADD COLUMN odeme_tarihi TEXT`, (err) => {});
+        db.run(`ALTER TABLE aidatlar ADD COLUMN gecikme_tazminati_borcu REAL DEFAULT 0`, (err) => {});
+        db.run(`ALTER TABLE aidatlar ADD COLUMN gecikme_tazminati_odendi INTEGER DEFAULT 0`, (err) => {});
 
         // Eski 'aktif' ve 'pasif' değerlerini 1 ve 2'ye çevir (giderler tablosunda kullanılıyordu)
         db.run(`UPDATE giderler SET durum = 1 WHERE durum = 'aktif'`);
@@ -417,18 +437,19 @@ ipcMain.handle('delete-ekstra-odeme', (event, id) => {
     });
 });
 
-ipcMain.handle('set-aidat-odeme-durumu', (event, { daire_id, yil, ay, tutar, odendi_mi, tur }) => {
+ipcMain.handle('set-aidat-odeme-durumu', (event, { daire_id, yil, ay, tutar, odendi_mi, tur, gecikme_tutari = 0 }) => {
     return new Promise((resolve, reject) => {
+        const bugun = new Date().toISOString().split('T')[0];
         if (odendi_mi) {
             db.get("SELECT id FROM aidatlar WHERE daire_id = ? AND yil = ? AND ay = ? AND tur = ?", [daire_id, yil, ay, tur], (err, row) => {
                 if (err) return reject(err);
                 if (row) {
-                    db.run("UPDATE aidatlar SET odendi_mi = 1, tutar = ? WHERE id = ?", [tutar, row.id], function(err) {
+                    db.run("UPDATE aidatlar SET odendi_mi = 1, tutar = ?, odeme_tarihi = ?, gecikme_tazminati_borcu = ? WHERE id = ?", [tutar, bugun, gecikme_tutari, row.id], function(err) {
                         if (err) reject(err); else resolve(this.changes);
                     });
                 } else {
-                    db.run("INSERT INTO aidatlar (daire_id, yil, ay, tutar, odendi_mi, tur) VALUES (?, ?, ?, ?, 1, ?)",
-                        [daire_id, yil, ay, tutar, tur], function(err) {
+                    db.run("INSERT INTO aidatlar (daire_id, yil, ay, tutar, odendi_mi, tur, odeme_tarihi, gecikme_tazminati_borcu) VALUES (?, ?, ?, ?, 1, ?, ?, ?)",
+                        [daire_id, yil, ay, tutar, tur, bugun, gecikme_tutari], function(err) {
                             if (err) reject(err); else resolve(this.lastID);
                         }
                     );

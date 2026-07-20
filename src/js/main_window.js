@@ -320,6 +320,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Helper
+function calculateGecikmeTazminati(tutar, yil, ay, is_paid = false, odeme_tarihi = null, db_kayitli_faiz = 0) {
+    if (is_paid && db_kayitli_faiz > 0) return db_kayitli_faiz;
+    if (is_paid && !db_kayitli_faiz) return 0;
+    
+    const vadeTarihi = new Date(yil, ay, 0); // O ayın son günü
+    vadeTarihi.setHours(23, 59, 59, 999);
+    
+    const bitisTarihi = odeme_tarihi ? new Date(odeme_tarihi) : new Date();
+    
+    let gunFarki = Math.floor((bitisTarihi - vadeTarihi) / (1000 * 60 * 60 * 24));
+    if (gunFarki <= 0) return 0;
+    
+    const gunlukFaizOrani = 0.05 / 30;
+    const gecikmeTazminati = tutar * gunlukFaizOrani * gunFarki;
+    
+    return Math.round(gecikmeTazminati * 100) / 100;
+}
+window.calculateGecikmeTazminati = calculateGecikmeTazminati;
+
 function formatMoney(amount) {
     if (amount === undefined || amount === null) amount = 0;
     return Number(amount).toLocaleString('tr-TR') + " ₺";
@@ -693,6 +712,8 @@ async function loadAidatGecmisi(daire_id) {
             const stdOdemeKaydi = fiiliOdemeler.find(o => o.yil === yil && o.ay === ay && o.tur === 'aidat');
             const isStandartOdendi = stdOdemeKaydi ? stdOdemeKaydi.odendi_mi === 1 : false;
             const aidat_id = stdOdemeKaydi ? stdOdemeKaydi.id : null;
+            
+            const stdGecikme = calculateGecikmeTazminati(standartTutar, yil, ay, isStandartOdendi, stdOdemeKaydi?.odeme_tarihi, stdOdemeKaydi?.gecikme_tazminati_borcu);
 
             // 2. Ekstra Ödemeler Hesaplama
             const ekstraAylar = ekstraOdemeler.filter(e => e.ay === ay);
@@ -705,6 +726,8 @@ async function loadAidatGecmisi(daire_id) {
                     const isEkstraPaidDb = fiiliOdemeler.find(o => o.yil === yil && o.ay === ay && o.tur === 'ekstra' && o.tutar === ekstra.tutar);
                     const isEkstraOdendi = isEkstraPaidDb ? isEkstraPaidDb.odendi_mi === 1 : false;
                     const ekstra_id = isEkstraPaidDb ? isEkstraPaidDb.id : null;
+                    
+                    const eksGecikme = calculateGecikmeTazminati(ekstra.tutar, yil, ay, isEkstraOdendi, isEkstraPaidDb?.odeme_tarihi, isEkstraPaidDb?.gecikme_tazminati_borcu);
 
                     const chkDisabled = !isYonetici ? 'disabled' : '';
                     const chkChecked = isEkstraOdendi ? 'checked' : '';
@@ -724,10 +747,11 @@ async function loadAidatGecmisi(daire_id) {
                             <div>
                                 <strong style="font-size:11px;">${ekstra.aciklama}</strong><br>
                                 <span style="color:#e1b12c; font-weight:bold;">${formatMoney(ekstra.tutar)}</span>
+                                ${eksGecikme > 0 ? `<div style="font-size:10px; color:#e74c3c; margin-top:2px;">+${formatMoney(eksGecikme)} Faiz</div>` : ''}
                             </div>
                             <div style="display:flex; align-items:center;">
                                 <label style="cursor:pointer; display:flex; align-items:center; gap:5px; font-size:12px;">
-                                    <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${ekstra.tutar}, this.checked, 'ekstra')">
+                                    <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${ekstra.tutar}, this.checked, 'ekstra', ${eksGecikme})">
                                     ${isEkstraOdendi ? '<span style="color:#2ecc71">Ödendi</span>' : '<span style="color:#e74c3c">Bekliyor</span>'}
                                 </label>
                                 ${dekontBtn}
@@ -757,10 +781,13 @@ async function loadAidatGecmisi(daire_id) {
 
                 standartHtml = `
                     <div style="display:flex; align-items:center; justify-content:space-between;">
-                        <span style="font-weight:bold; color:#3498db;">${formatMoney(standartTutar)}</span>
+                        <div>
+                            <span style="font-weight:bold; color:#3498db;">${formatMoney(standartTutar)}</span>
+                            ${stdGecikme > 0 ? `<div style="font-size:10px; color:#e74c3c; margin-top:2px;">+${formatMoney(stdGecikme)} Faiz</div>` : ''}
+                        </div>
                         <div style="display:flex; align-items:center;">
                             <label style="cursor:pointer; display:flex; align-items:center; gap:5px; font-size:12px;">
-                                <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${standartTutar}, this.checked, 'aidat')">
+                                <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${standartTutar}, this.checked, 'aidat', ${stdGecikme})">
                                 ${isStandartOdendi ? '<span style="color:#2ecc71">Ödendi</span>' : '<span style="color:#e74c3c">Bekliyor</span>'}
                             </label>
                             ${dekontBtn}
@@ -791,9 +818,9 @@ async function loadAidatGecmisi(daire_id) {
     }
 }
 
-window.toggleOdemeDurum = async function (daire_id, yil, ay, tutar, is_paid, tur) {
+window.toggleOdemeDurum = async function (daire_id, yil, ay, tutar, is_paid, tur, gecikme_tutari = 0) {
     try {
-        await ipcRenderer.invoke('set-aidat-odeme-durumu', { daire_id, yil, ay, tutar, odendi_mi: is_paid, tur });
+        await ipcRenderer.invoke('set-aidat-odeme-durumu', { daire_id, yil, ay, tutar, odendi_mi: is_paid, tur, gecikme_tutari });
         loadAidatGecmisi(daire_id);
         loadDashboard();
         if (window.loadParcelsToMap) window.loadParcelsToMap();
@@ -1224,6 +1251,7 @@ async function sendMailToResident(daire, type) {
     const fiiliOdemeler = await ipcRenderer.invoke('get-aidatlar', daire.id);
 
     let totalDebt = 0;
+    let totalGecikme = 0;
     let unpaidMonths = [];
 
     const ayIsimleri = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
@@ -1234,6 +1262,8 @@ async function sendMailToResident(daire, type) {
         if (tanim) {
             const odendi = fiiliOdemeler.find(o => o.yil === yil && o.ay === i && o.tur === 'aidat' && o.odendi_mi === 1);
             if (!odendi && (yil < new Date().getFullYear() || i <= new Date().getMonth() + 1)) {
+                const gecikme = calculateGecikmeTazminati(tanim.tutar, yil, i, false, null, 0);
+                totalGecikme += gecikme;
                 totalDebt += tanim.tutar;
                 unpaidMonths.push(ayIsimleri[i - 1]);
             }
@@ -1244,12 +1274,18 @@ async function sendMailToResident(daire, type) {
     ekstraOdemeler.forEach(e => {
         const odendi = fiiliOdemeler.find(o => o.yil === yil && o.ay === e.ay && o.tur === 'ekstra' && o.tutar === e.tutar && o.odendi_mi === 1);
         if (!odendi) {
+            const gecikme = calculateGecikmeTazminati(e.tutar, yil, e.ay, false, null, 0);
+            totalGecikme += gecikme;
             totalDebt += e.tutar;
             if (!unpaidMonths.includes(ayIsimleri[e.ay - 1])) {
                 unpaidMonths.push(ayIsimleri[e.ay - 1] + " (Ekstra)");
             }
         }
     });
+
+    totalDebt = Math.round(totalDebt * 100) / 100;
+    totalGecikme = Math.round(totalGecikme * 100) / 100;
+    const genelToplam = Math.round((totalDebt + totalGecikme) * 100) / 100;
 
     const ayarlar = await ipcRenderer.invoke('get-ayarlar');
     const donem = `${ayIsimleri[new Date().getMonth()]} ${yil}`;
@@ -1258,9 +1294,9 @@ async function sendMailToResident(daire, type) {
     let subject = "";
     let body = "";
 
-    let borcDetayText = `${donem} dönemi itibarıyla toplam ${totalDebt} TL`;
+    let borcDetayText = `${donem} dönemi itibarıyla ana paranız ${totalDebt} TL ve KMK madde 20 uyarınca işleyen aylık %5 gecikme tazminatınız ${totalGecikme} TL olmak üzere toplam ${genelToplam} TL`;
     if (unpaidMonths.length > 0) {
-        borcDetayText = `${unpaidMonths.join(', ')} aylarına ait toplam ${totalDebt} TL`;
+        borcDetayText = `${unpaidMonths.join(', ')} aylarına ait ${totalDebt} TL anapara ve ${totalGecikme} TL gecikme tazminatı ile birlikte TOPLAM ${genelToplam} TL`;
     }
 
     if (type === 'borclu') {

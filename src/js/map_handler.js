@@ -81,7 +81,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             const aylar = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
                             const formattedUnpaid = daireUnpaid.map(a => {
                                 const tip = a.tur === 'ekstra' ? 'Ekstra' : 'Aidat';
-                                return `${aylar[a.ay - 1]} ${a.yil} (${tip})`;
+                                let gecikmeStr = '';
+                                if (window.calculateGecikmeTazminati) {
+                                    const gecikme = window.calculateGecikmeTazminati(a.tutar, a.yil, a.ay, false, null, 0);
+                                    if (gecikme > 0) {
+                                        gecikmeStr = ` <span style="font-size:10px; color:#e74c3c;">(+${gecikme} ₺ Faiz)</span>`;
+                                    }
+                                }
+                                return `${aylar[a.ay - 1]} ${a.yil} (${tip}): ${a.tutar} ₺${gecikmeStr}`;
                             }).join('<br>');
                             unpaidText = `<br><b style="color:#e74c3c; margin-top:5px; display:inline-block;">Ödenmemiş Ödemeler:</b><br><span style="font-size:11px; color:#c0392b;">${formattedUnpaid}</span>`;
                         } else {
