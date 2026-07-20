@@ -482,7 +482,7 @@ body {
     .login-form-wrapper {
         bottom: 20px;
         right: 50%;
-        transform: translateX(50%);
+    }
 }
 
 /* --- LEAFLET TOOLTIP FIX (Görünmez Arka Plan) --- */

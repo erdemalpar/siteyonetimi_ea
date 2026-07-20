@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (savedUser) {
                 const user = siteData.daireler.find(d => d.username === savedUser);
                 if (user) {
-                    login(user);
+                    login(user, true); // true = Otomatik giriş
                 }
             }
         } catch (err) {
@@ -124,22 +124,35 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function login(user) {
+    function login(user, isAutoLogin = false) {
         currentUser = user;
         localStorage.setItem('sakin_user', user.username);
         
         loginError.classList.add('hidden');
         
-        // Hide login with Lithos transition
-        if(window.rafRef) cancelAnimationFrame(window.rafRef);
-        loginSection.style.opacity = '0';
-        setTimeout(() => {
+        if (isAutoLogin) {
+            // Otomatik girişte animasyon gösterme, direkt panele geç
+            if(window.rafRef) cancelAnimationFrame(window.rafRef);
+            loginSection.style.transition = 'none';
+            loginSection.style.opacity = '0';
             loginSection.style.display = 'none';
             dashSection.classList.remove('hidden');
             if (window.sakinMap) {
                 window.sakinMap.invalidateSize();
             }
-        }, 800);
+        } else {
+            // Normal girişte Lithos transition efektini oynat
+            if(window.rafRef) cancelAnimationFrame(window.rafRef);
+            loginSection.style.transition = 'opacity 0.8s ease';
+            loginSection.style.opacity = '0';
+            setTimeout(() => {
+                loginSection.style.display = 'none';
+                dashSection.classList.remove('hidden');
+                if (window.sakinMap) {
+                    window.sakinMap.invalidateSize();
+                }
+            }, 800);
+        }
         
         renderDashboard();
         resetInactivityTimer();
@@ -416,26 +429,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const customStyle = { color: '#3b82f6', weight: 4, fillColor: '#3b82f6', fillOpacity: 0.4 };
             
             // Popup Borç Listesi HTML
-            let popupBorcHTML = \`<div style="margin-top:10px; border-top:1px solid #ddd; padding-top:10px;">
+            let popupBorcHTML = `<div style="margin-top:10px; border-top:1px solid #ddd; padding-top:10px;">
                 <strong style="color:#e8702a; font-size:14px; font-family:'Outfit', sans-serif;">Ödenmemiş Borçlar:</strong>
-                <ul style="margin:8px 0 0 0; padding-left:18px; font-size:13px; color:#333;">\`;
+                <ul style="margin:8px 0 0 0; padding-left:18px; font-size:13px; color:#333;">`;
             
             if (unpaidPaymentsList.length > 0) {
                 unpaidPaymentsList.forEach(p => {
                     const tur = p.tur === 'ekstra' ? p.aciklama : 'Aidat';
                     const monthName = AYLAR[p.ay - 1] || p.ay;
-                    popupBorcHTML += \`<li style="margin-bottom:4px;">\${monthName} \${p.yil} \${tur}: <b>\${p.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>\`;
+                    popupBorcHTML += `<li style="margin-bottom:4px;">${monthName} ${p.yil} ${tur}: <b>${p.tutar.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b></li>`;
                 });
             } else {
-                popupBorcHTML += \`<li style="color:#10b981; list-style-type:none; margin-left:-18px; font-weight:500;">Tebrikler, ödenmemiş borcunuz bulunmamaktadır! 🎉</li>\`;
+                popupBorcHTML += `<li style="color:#10b981; list-style-type:none; margin-left:-18px; font-weight:500;">Tebrikler, ödenmemiş borcunuz bulunmamaktadır! 🎉</li>`;
             }
-            popupBorcHTML += \`</ul></div>\`;
+            popupBorcHTML += `</ul></div>`;
 
-            const popupContent = \`<div style="min-width: 200px; font-family:'Inter', sans-serif;">
+            const popupContent = `<div style="min-width: 200px; font-family:'Inter', sans-serif;">
                 <b style="font-size:15px; color:#111;">Benim Konumum</b><br>
-                <span style="color:#555;">Blok: \${currentUser.blok} | Daire: \${currentUser.daire_no}</span>
-                \${popupBorcHTML}
-            </div>\`;
+                <span style="color:#555;">Blok: ${currentUser.blok} | Daire: ${currentUser.daire_no}</span>
+                ${popupBorcHTML}
+            </div>`;
 
             let layer;
             const customLayer = L.geoJson(null, {
