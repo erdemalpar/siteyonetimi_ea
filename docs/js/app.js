@@ -439,7 +439,51 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             new L.Control.ZoomLevel({ position: 'topright' }).addTo(window.sakinMap);
 
-            const customStyle = { color: '#3b82f6', weight: 4, fillColor: '#3b82f6', fillOpacity: 0.4 };
+            let hasAidatDebt = false;
+            let hasEkstraDebt = false;
+            unpaidPaymentsList.forEach(p => {
+                if (p.tur === 'ekstra') hasEkstraDebt = true;
+                else hasAidatDebt = true;
+            });
+            
+            let mapColor = '#2ecc71'; // Borcu Yok
+            if (hasAidatDebt && hasEkstraDebt) mapColor = '#a855f7';
+            else if (hasAidatDebt) mapColor = '#ef4444';
+            else if (hasEkstraDebt) mapColor = '#f97316';
+            
+            const customStyle = { color: mapColor, weight: 4, fillColor: mapColor, fillOpacity: 0.4 };
+            
+            // Legend Control Ekleme
+            L.Control.Legend = L.Control.extend({
+                onAdd: function(map) {
+                    var div = L.DomUtil.create('div', 'leaflet-control leaflet-bar legend');
+                    div.style.backgroundColor = 'rgba(30, 40, 50, 0.95)';
+                    div.style.color = '#fff';
+                    div.style.padding = '12px 16px';
+                    div.style.fontSize = '14px';
+                    div.style.border = 'none';
+                    div.style.borderRadius = '12px';
+                    div.style.boxShadow = '0 4px 10px rgba(0,0,0,0.5)';
+                    div.style.fontFamily = "'Inter', sans-serif";
+                    
+                    div.innerHTML = `
+                        <div style="display:flex; align-items:center; margin-bottom:10px;">
+                            <span style="display:inline-block; width:16px; height:16px; border-radius:4px; background-color:#2ecc71; margin-right:12px;"></span> Borcu Yok
+                        </div>
+                        <div style="display:flex; align-items:center; margin-bottom:10px;">
+                            <span style="display:inline-block; width:16px; height:16px; border-radius:4px; background-color:#ef4444; margin-right:12px;"></span> Aidat Borcu Var
+                        </div>
+                        <div style="display:flex; align-items:center; margin-bottom:10px;">
+                            <span style="display:inline-block; width:16px; height:16px; border-radius:4px; background-color:#f97316; margin-right:12px;"></span> Ekstra Ödeme Borcu Var
+                        </div>
+                        <div style="display:flex; align-items:center;">
+                            <span style="display:inline-block; width:16px; height:16px; border-radius:4px; background-color:#a855f7; margin-right:12px;"></span> Hem Aidat Hem Ekstra Borcu Var
+                        </div>
+                    `;
+                    return div;
+                }
+            });
+            new L.Control.Legend({ position: 'bottomright' }).addTo(window.sakinMap);
             
             // Popup Borç Listesi HTML
             let popupBorcHTML = `<div style="margin-top:10px; border-top:1px solid #ddd; padding-top:10px;">
