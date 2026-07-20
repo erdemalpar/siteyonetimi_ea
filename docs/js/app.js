@@ -197,24 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
             qrBox.classList.add('hidden');
         }
 
-        // Kasa Bakiyesi Hesaplama
-        let toplamGelir = 0;
-        let toplamGider = 0;
-
-        if (siteData.aidatlar) {
-            siteData.aidatlar.forEach(a => {
-                if (a.odendi_mi === 1) toplamGelir += a.tutar;
-            });
-        }
-
-        if (siteData.giderler) {
-            siteData.giderler.forEach(g => {
-                if (g.durum === 1) toplamGider += g.tutar;
-            });
-        }
-
-        const kasaBakiyesi = toplamGelir - toplamGider;
-        document.getElementById('dash-site-balance').innerText = kasaBakiyesi.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
 
         const tbody = document.getElementById('dash-payments-body');
         tbody.innerHTML = '';
@@ -231,6 +213,28 @@ document.addEventListener('DOMContentLoaded', () => {
             const today = new Date();
             const currentYear = today.getFullYear();
             const currentMonth = today.getMonth() + 1;
+
+            let buYilGelir = 0;
+            let buYilGider = 0;
+
+            if (siteData.aidatlar) {
+                siteData.aidatlar.forEach(a => {
+                    if (a.odendi_mi === 1 && a.yil === currentYear) buYilGelir += a.tutar;
+                });
+            }
+
+            if (siteData.giderler) {
+                siteData.giderler.forEach(g => {
+                    if (g.durum == 1 && g.tarih && g.tarih.startsWith(currentYear.toString())) buYilGider += g.tutar;
+                });
+            }
+
+            const eDashIncomes = document.getElementById('dash-site-incomes');
+            if (eDashIncomes) eDashIncomes.innerText = buYilGelir.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
+            
+            const eDashExpenses = document.getElementById('dash-site-expenses');
+            if (eDashExpenses) eDashExpenses.innerText = buYilGider.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺';
+
             
             if (siteData.aidat_tanimlari) {
                 siteData.aidat_tanimlari.forEach(t => {
@@ -300,11 +304,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (siteData.giderler && siteData.giderler.length > 0) {
             const groupedExpenses = {};
             siteData.giderler.forEach(g => {
-                if (g.durum !== 1) return;
-                const dateParts = g.tarih.split('-'); // YYYY-MM-DD
-                const year = dateParts[0];
-                if (!groupedExpenses[year]) groupedExpenses[year] = [];
-                groupedExpenses[year].push(g);
+                if (g.durum == 1) {
+                    const dateParts = g.tarih.split('-'); // YYYY-MM-DD
+                    const year = dateParts[0];
+                    if (!groupedExpenses[year]) groupedExpenses[year] = [];
+                    groupedExpenses[year].push(g);
+                }
             });
 
             const years = Object.keys(groupedExpenses).sort((a, b) => b - a); // Yeni yıldan eskiye sıralama
