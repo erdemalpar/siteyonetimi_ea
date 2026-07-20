@@ -22,12 +22,25 @@ function calculateGecikmeTazminati(tutar, yil, ay, is_paid = false, odeme_tarihi
 }
 const { exec } = require('child_process');
 
-const dbDir = path.join(__dirname, 'veritabani');
+const userDataPath = app.getPath('userData');
+const dbDir = path.join(userDataPath, 'veritabani');
 if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir);
+    fs.mkdirSync(dbDir, { recursive: true });
 }
 const dbPath = path.join(dbDir, 'site_yonetim.sqlite');
 
+// Eskiden projede var olan veritabanı taşınacaksa
+const oldDbDir = path.join(__dirname, 'veritabani');
+const oldDbPath = path.join(oldDbDir, 'site_yonetim.sqlite');
+
+if (fs.existsSync(oldDbPath) && !fs.existsSync(dbPath)) {
+    try {
+        fs.copyFileSync(oldDbPath, dbPath);
+        console.log("Eski veritabanı başarıyla userData klasörüne aktarıldı.");
+    } catch(e) {
+        console.error("Veritabanı taşıma hatası:", e);
+    }
+}
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) console.error("Veritabanı bağlanırken hata oluştu: ", err.message);
     else initializeDatabase();

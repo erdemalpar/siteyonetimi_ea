@@ -6,3 +6,6 @@ veritabani/
 .DS_Store
 debug_*.js
 test*.js
+release/
+dist/
+out/

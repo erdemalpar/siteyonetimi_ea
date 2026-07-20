@@ -5,7 +5,31 @@
   "main": "main.js",
   "scripts": {
     "start": "electron . --enable-logging",
-    "deploy": "gh-pages -d docs"
+    "deploy": "gh-pages -d docs",
+    "build": "electron-builder --mac --win"
+  },
+  "build": {
+    "appId": "com.siteyonetimpaneli.ea",
+    "productName": "Site Yonetim Paneli EA",
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "build/icon.icns"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/gh-pages",
+      "!docs",
+      "!release",
+      "!src/js/*.map"
+    ],
+    "asar": true
   },
   "keywords": [],
   "author": "",
@@ -16,6 +40,7 @@
   },
   "devDependencies": {
     "electron": "^43.1.1",
+    "electron-builder": "^26.15.3",
     "gh-pages": "^6.3.0"
   }
 }
