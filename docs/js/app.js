@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (siteData.giderler) {
             siteData.giderler.forEach(g => {
-                if (g.durum === 'aktif') toplamGider += g.tutar;
+                if (g.durum === 1) toplamGider += g.tutar;
             });
         }
 
@@ -300,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (siteData.giderler && siteData.giderler.length > 0) {
             const groupedExpenses = {};
             siteData.giderler.forEach(g => {
-                if (g.durum !== 'aktif') return;
+                if (g.durum !== 1) return;
                 const dateParts = g.tarih.split('-'); // YYYY-MM-DD
                 const year = dateParts[0];
                 if (!groupedExpenses[year]) groupedExpenses[year] = [];
