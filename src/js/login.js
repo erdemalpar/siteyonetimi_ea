@@ -64,7 +64,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Login Logic ---
     const loginBtn = document.getElementById('login-btn');
+    const usernameInput = document.getElementById('login-username');
     const errorMsg = document.getElementById('login-error');
+
+    usernameInput.focus();
 
     const handleEnter = (e) => {
         if (e.key === 'Enter') {

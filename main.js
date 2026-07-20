@@ -873,6 +873,14 @@ ipcMain.handle('save-file', (event, { category, related_id, fileData, fileName }
     });
 });
 
+ipcMain.handle('delete-file', (event, { category, related_id }) => {
+    return new Promise((resolve, reject) => {
+        db.run("DELETE FROM dosyalar WHERE related_table = ? AND related_id = ?", [category, related_id], function(err) {
+            if (err) reject(err); else resolve();
+        });
+    });
+});
+
 ipcMain.handle('get-file', (event, { related_table, related_id }) => {
     return new Promise((resolve, reject) => {
         db.get("SELECT file_data, file_type FROM dosyalar WHERE related_table = ? AND related_id = ?", [related_table, related_id], (err, row) => {

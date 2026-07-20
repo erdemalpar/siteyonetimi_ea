@@ -429,7 +429,7 @@ async function loadDaireler() {
     }
 }
 
-let isDevirActive = false;
+
 let currentGgStats = null;
 
 function initGelirGiderTab() {
@@ -446,40 +446,20 @@ function initGelirGiderTab() {
         yilSelect.addEventListener('change', loadGelirGiderTab);
     }
 
-    const devirCard = document.getElementById('devir-card');
-    if (devirCard && !devirCard.dataset.listenerAdded) {
-        devirCard.addEventListener('click', () => {
-            isDevirActive = !isDevirActive;
-            updateGelirGiderUI();
-        });
-        devirCard.dataset.listenerAdded = 'true';
-    }
+
 
     loadGelirGiderTab();
 }
 
 function updateGelirGiderUI() {
     if (!currentGgStats) return;
-    const { devredenBakiye, buYilGelir, buYilGider } = currentGgStats;
+    const { buYilGelir, buYilGider } = currentGgStats;
     
     document.getElementById('gg-toplam-gelir').innerText = formatMoney(buYilGelir);
     document.getElementById('gg-toplam-gider').innerText = formatMoney(buYilGider);
     
-    const devirCard = document.getElementById('devir-card');
-    const devirText = document.getElementById('gg-devreden-bakiye');
     const bakiyeText = document.getElementById('gg-guncel-bakiye');
-
-    if (isDevirActive) {
-        devirText.innerText = formatMoney(devredenBakiye);
-        devirText.style.fontSize = ""; 
-        bakiyeText.innerText = formatMoney(devredenBakiye + buYilGelir - buYilGider);
-        devirCard.style.background = "rgba(168, 85, 247, 0.2)";
-    } else {
-        devirText.innerText = "Hesapla (Tıkla)";
-        devirText.style.fontSize = "13px";
-        bakiyeText.innerText = formatMoney(buYilGelir - buYilGider);
-        devirCard.style.background = "";
-    }
+    bakiyeText.innerText = formatMoney(buYilGelir - buYilGider);
 }
 
 async function loadGelirGiderTab() {
@@ -733,7 +713,7 @@ async function loadAidatGecmisi(daire_id) {
                     if (isEkstraOdendi && ekstra_id) {
                         const hasDekont = dosyalar.find(d => d.related_id === ekstra_id);
                         if (hasDekont) {
-                            dekontBtn = `<button onclick="viewDekontAdmin('aidatlar', ${ekstra_id})" class="btn-primary" style="margin-left:5px; padding:2px 5px; font-size:10px;"><i class="fa-solid fa-eye"></i> Dekont</button> <button onclick="uploadDekont('aidatlar', ${ekstra_id})" class="btn-secondary" style="padding:2px 5px; font-size:10px;"><i class="fa-solid fa-sync"></i></button>`;
+                            dekontBtn = `<button onclick="viewDekontAdmin('aidatlar', ${ekstra_id})" class="btn-primary" style="margin-left:5px; padding:2px 5px; font-size:10px;"><i class="fa-solid fa-eye"></i> Dekont</button> <button onclick="uploadDekont('aidatlar', ${ekstra_id})" class="btn-warning" style="padding:2px 5px; font-size:10px; color:#000;" title="Değiştir">Değiştir</button> <button onclick="deleteDekont('aidatlar', ${ekstra_id})" class="btn-danger" style="padding:2px 5px; font-size:10px; margin-left:2px;" title="Sil">Sil</button>`;
                         } else {
                             dekontBtn = `<button onclick="uploadDekont('aidatlar', ${ekstra_id})" class="btn-success" style="margin-left:5px; padding:2px 5px; font-size:10px;"><i class="fa-solid fa-upload"></i> Yükle</button>`;
                         }
@@ -769,7 +749,7 @@ async function loadAidatGecmisi(daire_id) {
                 if (isStandartOdendi && aidat_id) {
                     const hasDekont = dosyalar.find(d => d.related_id === aidat_id);
                     if (hasDekont) {
-                        dekontBtn = `<button onclick="viewDekontAdmin('aidatlar', ${aidat_id})" class="btn-primary" style="margin-left:5px; padding:2px 5px; font-size:10px;"><i class="fa-solid fa-eye"></i> Dekont</button> <button onclick="uploadDekont('aidatlar', ${aidat_id})" class="btn-secondary" style="padding:2px 5px; font-size:10px;"><i class="fa-solid fa-sync"></i></button>`;
+                        dekontBtn = `<button onclick="viewDekontAdmin('aidatlar', ${aidat_id})" class="btn-primary" style="margin-left:5px; padding:2px 5px; font-size:10px;"><i class="fa-solid fa-eye"></i> Dekont</button> <button onclick="uploadDekont('aidatlar', ${aidat_id})" class="btn-warning" style="padding:2px 5px; font-size:10px; color:#000;" title="Değiştir">Değiştir</button> <button onclick="deleteDekont('aidatlar', ${aidat_id})" class="btn-danger" style="padding:2px 5px; font-size:10px; margin-left:2px;" title="Sil">Sil</button>`;
                     } else {
                         dekontBtn = `<button onclick="uploadDekont('aidatlar', ${aidat_id})" class="btn-success" style="margin-left:5px; padding:2px 5px; font-size:10px;"><i class="fa-solid fa-upload"></i> Yükle</button>`;
                     }
@@ -833,6 +813,19 @@ window.uploadDekont = async function(category, id) {
         if(typeof loadAidatGecmisi !== 'undefined' && currentDaireId) loadAidatGecmisi(currentDaireId);
     } catch (e) {
         alert('Yükleme hatası: ' + e);
+    }
+}
+
+window.deleteDekont = async function(category, id) {
+    if (confirm("Bu dekontu kalıcı olarak silmek istediğinize emin misiniz?")) {
+        try {
+            await ipcRenderer.invoke('delete-file', { category, related_id: id });
+            alert('Dekont silindi.');
+            if(typeof loadAidatGecmisi !== 'undefined' && currentDaireId) loadAidatGecmisi(currentDaireId);
+        } catch (error) {
+            console.error(error);
+            alert('Dekont silinirken hata oluştu.');
+        }
     }
 }
 
