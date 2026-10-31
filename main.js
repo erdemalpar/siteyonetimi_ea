@@ -53,6 +53,15 @@ const db = new sqlite3.Database(dbPath, (err) => {
     else initializeDatabase();
 });
 
+// Ekstra ödeme kayıtları yıl ve ay yerine ait oldukları tanıma bağlanır,
+// böylece aynı aydaki birden fazla ekstra ödeme birbirine karışmaz
+const EKSTRA_BAGLA_SQL = `
+    UPDATE aidatlar SET ekstra_id = COALESCE(
+        (SELECT eo.id FROM ekstra_odemeler eo WHERE eo.yil = aidatlar.yil AND eo.ay = aidatlar.ay AND eo.tutar = aidatlar.tutar ORDER BY eo.id LIMIT 1),
+        (SELECT eo.id FROM ekstra_odemeler eo WHERE eo.yil = aidatlar.yil AND eo.ay = aidatlar.ay ORDER BY eo.id LIMIT 1)
+    )
+    WHERE tur = 'ekstra' AND ekstra_id IS NULL`;
+
 function initializeDatabase() {
     db.serialize(() => {
         db.run(`CREATE TABLE IF NOT EXISTS daireler (
@@ -135,6 +144,8 @@ function initializeDatabase() {
         db.run(`ALTER TABLE aidatlar ADD COLUMN odeme_tarihi TEXT`, (err) => {});
         db.run(`ALTER TABLE aidatlar ADD COLUMN gecikme_tazminati_borcu REAL DEFAULT 0`, (err) => {});
         db.run(`ALTER TABLE aidatlar ADD COLUMN gecikme_tazminati_odendi INTEGER DEFAULT 0`, (err) => {});
+        db.run(`ALTER TABLE aidatlar ADD COLUMN ekstra_id INTEGER`, (err) => {});
+        db.run(EKSTRA_BAGLA_SQL);
 
         // Eski 'aktif' ve 'pasif' değerlerini 1 ve 2'ye çevir (giderler tablosunda kullanılıyordu)
         db.run(`UPDATE giderler SET durum = 1 WHERE durum = 'aktif'`);
@@ -350,7 +361,7 @@ ipcMain.handle('get-daire-unpaid-details', async (event, daire_id) => {
             UNION
             SELECT eo.yil, eo.ay, 'ekstra' as tur, eo.tutar, eo.aciklama
             FROM ekstra_odemeler eo
-            LEFT JOIN aidatlar a ON a.daire_id = ? AND a.yil = eo.yil AND a.ay = eo.ay AND a.tur = 'ekstra' AND a.odendi_mi = 1
+            LEFT JOIN aidatlar a ON a.daire_id = ? AND a.ekstra_id = eo.id AND a.odendi_mi = 1
             WHERE (eo.yil < ? OR (eo.yil = ? AND eo.ay <= ?)) AND a.id IS NULL
             ORDER BY 1 DESC, 2 DESC
         `;
@@ -407,28 +418,14 @@ ipcMain.handle('set-aidat-tanimi', (event, { yil, ay, tutar }) => {
     });
 });
 
-ipcMain.handle('delete-aidat-tanimi', (event, { yil, ay }) => {
-    return new Promise((resolve, reject) => {
-        db.run("DELETE FROM aidatlar WHERE yil = ? AND ay = ? AND tur = 'aidat'", [yil, ay], (err1) => {
-            if (err1) console.error("Aidatlar silinirken hata:", err1);
-            db.run("DELETE FROM aidat_tanimlari WHERE yil = ? AND ay = ?", [yil, ay], function(err2) {
-                if (err2) reject(err2);
-                else resolve(this.changes);
-            });
-        });
-    });
+ipcMain.handle('delete-aidat-tanimi', async (event, { yil, ay }) => {
+    await deleteAidatlarWithFiles("yil = ? AND ay = ? AND tur = 'aidat'", [yil, ay]);
+    return (await dbRun("DELETE FROM aidat_tanimlari WHERE yil = ? AND ay = ?", [yil, ay])).changes;
 });
 
-ipcMain.handle('delete-all-aidat-tanimlari', (event) => {
-    return new Promise((resolve, reject) => {
-        db.run("DELETE FROM aidatlar WHERE tur = 'aidat'", [], (err1) => {
-            if (err1) console.error("Aidatlar silinirken hata:", err1);
-            db.run("DELETE FROM aidat_tanimlari", function(err2) {
-                if (err2) reject(err2);
-                else resolve(this.changes);
-            });
-        });
-    });
+ipcMain.handle('delete-all-aidat-tanimlari', async () => {
+    await deleteAidatlarWithFiles("tur = 'aidat'", []);
+    return (await dbRun("DELETE FROM aidat_tanimlari")).changes;
 });
 
 ipcMain.handle('get-ekstra-odemeler', (event, yil) => {
@@ -452,47 +449,35 @@ ipcMain.handle('add-ekstra-odeme', (event, { yil, ay, aciklama, tutar }) => {
     });
 });
 
-ipcMain.handle('delete-ekstra-odeme', (event, id) => {
-    return new Promise((resolve, reject) => {
-        db.get("SELECT yil, ay, tutar FROM ekstra_odemeler WHERE id = ?", [id], (err, row) => {
-            if (err || !row) return reject(err || new Error("Kayıt bulunamadı"));
-            
-            db.run("DELETE FROM aidatlar WHERE yil = ? AND ay = ? AND tutar = ? AND tur = 'ekstra'", [row.yil, row.ay, row.tutar], (err1) => {
-                if (err1) console.error("Ekstra aidatlar silinirken hata:", err1);
-                db.run("DELETE FROM ekstra_odemeler WHERE id = ?", [id], function(err2) {
-                    if (err2) reject(err2);
-                    else resolve(this.changes);
-                });
-            });
-        });
-    });
+// Silinen ödemelerin dekontları sahipsiz kalmasın diye birlikte silinir
+function deleteAidatlarWithFiles(kosul, params) {
+    return dbRun(`DELETE FROM dosyalar WHERE related_table = 'aidatlar' AND related_id IN (SELECT id FROM aidatlar WHERE ${kosul})`, params)
+        .then(() => dbRun(`DELETE FROM aidatlar WHERE ${kosul}`, params));
+}
+
+ipcMain.handle('delete-ekstra-odeme', async (event, id) => {
+    await deleteAidatlarWithFiles("ekstra_id = ?", [id]);
+    return (await dbRun("DELETE FROM ekstra_odemeler WHERE id = ?", [id])).changes;
 });
 
-ipcMain.handle('set-aidat-odeme-durumu', (event, { daire_id, yil, ay, tutar, odendi_mi, tur, gecikme_tutari = 0 }) => {
-    return new Promise((resolve, reject) => {
-        const bugun = new Date().toISOString().split('T')[0];
-        if (odendi_mi) {
-            db.get("SELECT id FROM aidatlar WHERE daire_id = ? AND yil = ? AND ay = ? AND tur = ?", [daire_id, yil, ay, tur], (err, row) => {
-                if (err) return reject(err);
-                if (row) {
-                    db.run("UPDATE aidatlar SET odendi_mi = 1, tutar = ?, odeme_tarihi = ?, gecikme_tazminati_borcu = ? WHERE id = ?", [tutar, bugun, gecikme_tutari, row.id], function(err) {
-                        if (err) reject(err); else resolve(this.changes);
-                    });
-                } else {
-                    db.run("INSERT INTO aidatlar (daire_id, yil, ay, tutar, odendi_mi, tur, odeme_tarihi, gecikme_tazminati_borcu) VALUES (?, ?, ?, ?, 1, ?, ?, ?)",
-                        [daire_id, yil, ay, tutar, tur, bugun, gecikme_tutari], function(err) {
-                            if (err) reject(err); else resolve(this.lastID);
-                        }
-                    );
-                }
-            });
-        } else {
-            db.run("DELETE FROM aidatlar WHERE daire_id = ? AND yil = ? AND ay = ? AND tur = ?", [daire_id, yil, ay, tur], function(err) {
-                if (err) reject(err);
-                else resolve(this.changes);
-            });
-        }
-    });
+ipcMain.handle('set-aidat-odeme-durumu', async (event, { daire_id, yil, ay, tutar, odendi_mi, tur, gecikme_tutari = 0, ekstra_id = null, odeme_tarihi = null }) => {
+    const kayitKosulu = tur === 'ekstra' ? "daire_id = ? AND ekstra_id = ?" : "daire_id = ? AND yil = ? AND ay = ? AND tur = 'aidat'";
+    const kayitParametreleri = tur === 'ekstra' ? [daire_id, ekstra_id] : [daire_id, yil, ay];
+
+    if (!odendi_mi) {
+        await deleteAidatlarWithFiles(kayitKosulu, kayitParametreleri);
+        return null;
+    }
+
+    const tarih = odeme_tarihi || new Date().toISOString().split('T')[0];
+    const [mevcut] = await dbAll(`SELECT id FROM aidatlar WHERE ${kayitKosulu}`, kayitParametreleri);
+    if (mevcut) {
+        await dbRun("UPDATE aidatlar SET odendi_mi = 1, tutar = ?, odeme_tarihi = ?, gecikme_tazminati_borcu = ? WHERE id = ?", [tutar, tarih, gecikme_tutari, mevcut.id]);
+        return mevcut.id;
+    }
+    const yeni = await dbRun("INSERT INTO aidatlar (daire_id, yil, ay, tutar, odendi_mi, tur, odeme_tarihi, gecikme_tazminati_borcu, ekstra_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)",
+        [daire_id, yil, ay, tutar, tur, tarih, gecikme_tutari, ekstra_id]);
+    return yeni.lastID;
 });
 
 // Gelir & Gider işlemleri
@@ -597,7 +582,7 @@ ipcMain.handle('get-dashboard-stats', async (event, params = {}) => {
                     SELECT DISTINCT d.id
                     FROM daireler d
                     JOIN ekstra_odemeler eo ON eo.yil = ?
-                    LEFT JOIN aidatlar a ON a.daire_id = d.id AND a.yil = eo.yil AND a.ay = eo.ay AND a.tur = 'ekstra' AND a.tutar = eo.tutar AND a.odendi_mi = 1
+                    LEFT JOIN aidatlar a ON a.daire_id = d.id AND a.ekstra_id = eo.id AND a.odendi_mi = 1
                     WHERE d.role = 'sakin' AND a.id IS NULL AND eo.ay <= ?
                 `, [currentYear, limitMonth, currentYear, limitMonth], (err, rows) => err ? rej(err) : res(rows)));
                 
@@ -687,7 +672,7 @@ ipcMain.handle('get-all-daire-payment-status', async () => {
         const ekstraQuery = `
             SELECT DISTINCT d.id FROM daireler d
             JOIN ekstra_odemeler eo ON (eo.yil < ? OR (eo.yil = ? AND eo.ay <= ?))
-            LEFT JOIN aidatlar a ON a.daire_id = d.id AND a.yil = eo.yil AND a.ay = eo.ay AND a.tur = 'ekstra' AND a.odendi_mi = 1
+            LEFT JOIN aidatlar a ON a.daire_id = d.id AND a.ekstra_id = eo.id AND a.odendi_mi = 1
             WHERE d.role = 'sakin' AND a.id IS NULL
             UNION
             SELECT daire_id FROM aidatlar WHERE tur = 'ekstra' AND odendi_mi = 0 AND (yil < ? OR (yil = ? AND ay <= ?))
@@ -939,6 +924,7 @@ async function restoreVeri(veri) {
                 : veri[anahtar];
             await insertRows(anahtar, satirlar);
         }
+        await dbRun(EKSTRA_BAGLA_SQL);
         await insertRows('daireler', yoneticiler.map(y => ({ ...y, id: undefined })));
         for (const anahtar of ['site_adi', 'banka_adi', 'iban', 'banka_qr']) {
             if (veri[anahtar]) await setAyar(anahtar, veri[anahtar]);
@@ -1082,6 +1068,19 @@ ipcMain.handle('get-file', (event, { related_table, related_id }) => {
         });
     });
 });
+
+// Ödeme kaydı silinmiş eski dekontlar
+ipcMain.handle('get-sahipsiz-dekontlar', () => dbAll(`
+    SELECT id, file_type as name, created_at FROM dosyalar
+    WHERE related_table = 'aidatlar' AND related_id NOT IN (SELECT id FROM aidatlar)
+    ORDER BY id`));
+
+ipcMain.handle('get-dosya', async (event, id) => {
+    const [dosya] = await dbAll("SELECT file_type as name, file_data as data FROM dosyalar WHERE id = ?", [id]);
+    return dosya || null;
+});
+
+ipcMain.handle('delete-dosya', async (event, id) => (await dbRun("DELETE FROM dosyalar WHERE id = ?", [id])).changes);
 
 ipcMain.handle('get-file-list', (event, related_table) => {
     return new Promise((resolve, reject) => {

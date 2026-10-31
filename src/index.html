@@ -589,6 +589,25 @@
                     </div>
                 </div>
 
+                <!-- Sahipsiz Dekontlar -->
+                <div id="sahipsiz-dekont-alani" class="glass hidden"
+                    style="margin-bottom: 15px; padding: 20px; border-radius: 8px;">
+                    <h2 class="font-playfair" style="margin: 0 0 8px; font-size: 18px;">Sahipsiz Dekontlar</h2>
+                    <p style="margin-bottom: 10px; opacity: 0.8; font-size: 13px;">Bu dekontların bağlı olduğu ödeme kaydı
+                        silinmiş, bu yüzden sakinler göremiyor. Dosyayı açıp ilgili ödemeye yeniden yükleyebilir,
+                        sonra buradan silebilirsiniz.</p>
+                    <table style="width: 100%; text-align: left; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+                                <th style="padding: 10px;">Dosya</th>
+                                <th style="padding: 10px;">Yükleme Tarihi</th>
+                                <th style="padding: 10px;">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sahipsiz-dekont-tbody"></tbody>
+                    </table>
+                </div>
+
                 <!-- Accordion 3: Standart Aidat Tanımlama -->
                 <div class="glass" style="margin-bottom: 15px; padding: 0; overflow: hidden; border-radius: 8px;">
                     <div style="padding: 15px 20px; cursor: pointer; background: rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;"
@@ -901,6 +920,36 @@
             <h2 class="font-playfair" style="margin-bottom: 20px;">Borcu Olanlar (Tüm Yıl)</h2>
             <ul id="odemeyenler-listesi" style="list-style: none; padding: 0;">
             </ul>
+        </div>
+    </div>
+
+    <!-- Ödeme Alma Modal -->
+    <div id="odeme-modal" class="hidden"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9998; display: flex; justify-content: center; align-items: center;">
+        <div class="glass"
+            style="width: 400px; padding: 30px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; display: flex; flex-direction: column; gap: 15px;">
+            <h2 class="font-playfair"
+                style="margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px;">Ödeme
+                Al</h2>
+            <p id="odeme-ozet" style="font-size: 14px;"></p>
+
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+                <label style="font-size: 13px; opacity: 0.8;">Ödeme Tarihi</label>
+                <input type="date" id="odeme-tarihi" class="form-control">
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+                <label style="font-size: 13px; opacity: 0.8;">Dekont (Opsiyonel)</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="odeme-dekont-btn" class="btn-primary" style="padding: 8px 12px;">Dosya Seç</button>
+                    <span id="odeme-dekont-adi" style="font-size: 13px; opacity: 0.8;"></span>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
+                <button id="odeme-iptal-btn" class="btn-danger">İptal</button>
+                <button id="odeme-kaydet-btn" class="btn-success">Ödemeyi Kaydet</button>
+            </div>
         </div>
     </div>
 

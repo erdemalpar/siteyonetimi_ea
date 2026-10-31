@@ -249,15 +249,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const allPayments = [];
             myAidats.forEach(o => {
-                let isDefined = true;
-                if (o.tur === 'aidat' && siteData.aidat_tanimlari) {
-                    isDefined = siteData.aidat_tanimlari.some(t => t.yil === o.yil && t.ay === o.ay);
-                } else if (o.tur === 'ekstra' && siteData.ekstra_odemeler) {
-                    isDefined = siteData.ekstra_odemeler.some(e => e.yil === o.yil && e.ay === o.ay);
-                }
+                const ekstra = (siteData.ekstra_odemeler || []).find(e => e.id === o.ekstra_id);
+                const isDefined = o.tur === 'ekstra'
+                    ? Boolean(ekstra)
+                    : (siteData.aidat_tanimlari || []).some(t => t.yil === o.yil && t.ay === o.ay);
 
                 if (isDefined) {
-                    allPayments.push({ ...o, is_paid: true });
+                    allPayments.push({ ...o, aciklama: ekstra ? ekstra.aciklama : undefined, is_paid: true });
                 }
             });
 
@@ -294,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (siteData.ekstra_odemeler) {
                 siteData.ekstra_odemeler.forEach(e => {
                     if (e.yil < currentYear || (e.yil === currentYear && e.ay <= currentMonth)) {
-                        const isPaid = myAidats.some(o => o.yil === e.yil && o.ay === e.ay && o.tur === 'ekstra');
+                        const isPaid = myAidats.some(o => o.ekstra_id === e.id);
                         if (!isPaid) {
                             allPayments.push({ ...e, tur: 'ekstra', aciklama: e.aciklama, is_paid: false });
                         }

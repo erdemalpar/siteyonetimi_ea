@@ -11,7 +11,7 @@ ipcRenderer.invoke = async function (channel, ...args) {
         'delete-all-aidat-tanimlari', 'add-ekstra-odeme', 'delete-ekstra-odeme',
         'set-aidat-odeme-durumu', 'add-gider', 'update-gider', 'set-gider-durum',
         'delete-gider', 'save-ayarlar', 'add-aidat', 'update-aidat-durum',
-        'save-file', 'delete-file', 'parola-yenile'
+        'save-file', 'delete-file', 'delete-dosya', 'parola-yenile'
     ];
 
     if (modifyingChannels.includes(channel)) {
@@ -114,6 +114,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadAyarlar();
             loadYedekListesi();
             loadParolaListesi();
+            loadSahipsizDekontlar();
             loadYayinDurumu();
 
             setTimeout(() => document.getElementById('nav-dashboard').click(), 50);
@@ -734,7 +735,7 @@ async function loadAidatGecmisi(daire_id) {
                 ekstraOdemelerHtml = '<span style="opacity:0.5">-</span>';
             } else {
                 ekstraAylar.forEach(ekstra => {
-                    const isEkstraPaidDb = fiiliOdemeler.find(o => o.yil === yil && o.ay === ay && o.tur === 'ekstra' && o.tutar === ekstra.tutar);
+                    const isEkstraPaidDb = fiiliOdemeler.find(o => o.ekstra_id === ekstra.id);
                     const isEkstraOdendi = isEkstraPaidDb ? isEkstraPaidDb.odendi_mi === 1 : false;
                     const ekstra_id = isEkstraPaidDb ? isEkstraPaidDb.id : null;
                     
@@ -762,7 +763,7 @@ async function loadAidatGecmisi(daire_id) {
                             </div>
                             <div style="display:flex; align-items:center;">
                                 <label style="cursor:pointer; display:flex; align-items:center; gap:5px; font-size:12px;">
-                                    <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${ekstra.tutar}, this.checked, 'ekstra', ${eksGecikme})">
+                                    <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${ekstra.tutar}, this.checked, 'ekstra', ${ekstra.id})">
                                     ${isEkstraOdendi ? '<span style="color:#2ecc71">Ödendi</span>' : '<span style="color:#e74c3c">Bekliyor</span>'}
                                 </label>
                                 ${dekontBtn}
@@ -798,7 +799,7 @@ async function loadAidatGecmisi(daire_id) {
                         </div>
                         <div style="display:flex; align-items:center;">
                             <label style="cursor:pointer; display:flex; align-items:center; gap:5px; font-size:12px;">
-                                <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${standartTutar}, this.checked, 'aidat', ${stdGecikme})">
+                                <input type="checkbox" ${chkDisabled} ${chkChecked} onchange="toggleOdemeDurum(${daire_id}, ${yil}, ${ay}, ${standartTutar}, this.checked, 'aidat')">
                                 ${isStandartOdendi ? '<span style="color:#2ecc71">Ödendi</span>' : '<span style="color:#e74c3c">Bekliyor</span>'}
                             </label>
                             ${dekontBtn}
@@ -807,7 +808,7 @@ async function loadAidatGecmisi(daire_id) {
                 `;
             }
 
-            const hasAnyDebt = (standartTutar > 0 && !isStandartOdendi) || (ekstraAylar.length > 0 && ekstraAylar.some(e => !fiiliOdemeler.find(o => o.yil === yil && o.ay === ay && o.tur === 'ekstra' && o.tutar === e.tutar && o.odendi_mi === 1)));
+            const hasAnyDebt = (standartTutar > 0 && !isStandartOdendi) || (ekstraAylar.length > 0 && ekstraAylar.some(e => !fiiliOdemeler.find(o => o.ekstra_id === e.id && o.odendi_mi === 1)));
             const hasAnyExpected = standartTutar > 0 || ekstraAylar.length > 0;
 
             let genelDurum = '<span style="opacity:0.5">-</span>';
@@ -829,17 +830,74 @@ async function loadAidatGecmisi(daire_id) {
     }
 }
 
-window.toggleOdemeDurum = async function (daire_id, yil, ay, tutar, is_paid, tur, gecikme_tutari = 0) {
-    try {
-        await ipcRenderer.invoke('set-aidat-odeme-durumu', { daire_id, yil, ay, tutar, odendi_mi: is_paid, tur, gecikme_tutari });
+let bekleyenOdeme = null;
+
+function odemeEkraniniYenile(daire_id) {
+    loadAidatGecmisi(daire_id);
+    loadDashboard();
+    if (window.loadParcelsToMap) window.loadParcelsToMap();
+}
+
+window.toggleOdemeDurum = async function (daire_id, yil, ay, tutar, is_paid, tur, ekstra_id = null) {
+    if (is_paid) {
+        bekleyenOdeme = { daire_id, yil, ay, tutar, tur, ekstra_id, dekont: null };
+        const bugun = new Date().toLocaleDateString('en-CA');
+        const tarihAlani = document.getElementById('odeme-tarihi');
+        tarihAlani.value = bugun;
+        tarihAlani.max = bugun;
+        document.getElementById('odeme-dekont-adi').innerText = 'Dosya seçilmedi';
+        odemeOzetiniGuncelle();
+        document.getElementById('odeme-modal').classList.remove('hidden');
+        return;
+    }
+
+    if (!confirm('Bu ödeme kaydı ve varsa dekontu silinecek. Devam edilsin mi?')) {
         loadAidatGecmisi(daire_id);
-        loadDashboard();
-        if (window.loadParcelsToMap) window.loadParcelsToMap();
+        return;
+    }
+    try {
+        await ipcRenderer.invoke('set-aidat-odeme-durumu', { daire_id, yil, ay, tutar, odendi_mi: false, tur, ekstra_id });
     } catch (err) {
         console.error(err);
         alert('Ödeme durumu güncellenemedi.');
-        loadAidatGecmisi(daire_id);
     }
+    odemeEkraniniYenile(daire_id);
+}
+
+function odemeGecikmesi() {
+    const { tutar, yil, ay } = bekleyenOdeme;
+    return calculateGecikmeTazminati(tutar, yil, ay, false, document.getElementById('odeme-tarihi').value, 0);
+}
+
+function odemeOzetiniGuncelle() {
+    const gecikme = odemeGecikmesi();
+    document.getElementById('odeme-ozet').innerText = `Tutar: ${formatMoney(bekleyenOdeme.tutar)}`
+        + (gecikme > 0 ? ` + ${formatMoney(gecikme)} gecikme faizi` : '');
+}
+
+function odemePenceresiniKapat() {
+    document.getElementById('odeme-modal').classList.add('hidden');
+    if (bekleyenOdeme) loadAidatGecmisi(bekleyenOdeme.daire_id);
+    bekleyenOdeme = null;
+}
+
+async function odemeyiKaydet() {
+    const odeme_tarihi = document.getElementById('odeme-tarihi').value;
+    if (!odeme_tarihi) return alert('Lütfen ödeme tarihini seçin.');
+
+    const { dekont, ...odeme } = bekleyenOdeme;
+    try {
+        const aidatId = await ipcRenderer.invoke('set-aidat-odeme-durumu', { ...odeme, odendi_mi: true, gecikme_tutari: odemeGecikmesi(), odeme_tarihi });
+        if (dekont) {
+            await ipcRenderer.invoke('save-file', { category: 'aidatlar', related_id: aidatId, fileData: dekont.data, fileName: dekont.name });
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Ödeme kaydedilemedi.');
+    }
+    document.getElementById('odeme-modal').classList.add('hidden');
+    bekleyenOdeme = null;
+    odemeEkraniniYenile(odeme.daire_id);
 }
 
 window.uploadDekont = async function (category, id) {
@@ -867,19 +925,48 @@ window.deleteDekont = async function (category, id) {
     }
 }
 
+function dosyayiAc(file) {
+    const uzanti = (file.name || '').split('.').pop().toLowerCase();
+    const tipler = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
+    const blob = new Blob([new Uint8Array(file.data)], { type: tipler[uzanti] || 'application/octet-stream' });
+    window.open(URL.createObjectURL(blob), '_blank');
+}
+
 window.viewDekontAdmin = async function (category, id) {
     try {
         const files = await ipcRenderer.invoke('get-file-list', category);
         const file = files.find(f => f.related_id === id);
-        if (file) {
-            const blob = new Blob([new Uint8Array(file.data)], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
-        }
+        if (file) dosyayiAc(file);
     } catch (e) {
         alert('Dosya açılamadı.');
     }
 }
+
+async function loadSahipsizDekontlar() {
+    const alan = document.getElementById('sahipsiz-dekont-alani');
+    if (!alan) return;
+    const dosyalar = await ipcRenderer.invoke('get-sahipsiz-dekontlar');
+    alan.classList.toggle('hidden', dosyalar.length === 0);
+    document.getElementById('sahipsiz-dekont-tbody').innerHTML = dosyalar.map(d => `<tr>
+        <td style="padding: 10px;">${d.name}</td>
+        <td style="padding: 10px;">${d.created_at ? new Date(d.created_at + 'Z').toLocaleDateString('tr-TR') : '-'}</td>
+        <td style="padding: 10px; white-space: nowrap;">
+            <button class="btn-primary" style="padding: 4px 10px; font-size: 12px;" onclick="sahipsizDekontAc(${d.id})">Aç</button>
+            <button class="btn-danger" style="padding: 4px 10px; font-size: 12px;" onclick="sahipsizDekontSil(${d.id})">Sil</button>
+        </td>
+    </tr>`).join('');
+}
+
+window.sahipsizDekontAc = async function (id) {
+    const file = await ipcRenderer.invoke('get-dosya', id);
+    if (file) dosyayiAc(file);
+};
+
+window.sahipsizDekontSil = async function (id) {
+    if (!confirm('Bu dekont kalıcı olarak silinecek. Devam edilsin mi?')) return;
+    await ipcRenderer.invoke('delete-dosya', id);
+    loadSahipsizDekontlar();
+};
 
 function initAidatAyarlari() {
     // Fill year comboboxes
@@ -1199,6 +1286,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    document.getElementById('odeme-tarihi').addEventListener('change', odemeOzetiniGuncelle);
+    document.getElementById('odeme-iptal-btn').addEventListener('click', odemePenceresiniKapat);
+    document.getElementById('odeme-kaydet-btn').addEventListener('click', odemeyiKaydet);
+    document.getElementById('odeme-dekont-btn').addEventListener('click', async () => {
+        const dosya = await ipcRenderer.invoke('select-file');
+        if (!dosya || !bekleyenOdeme) return;
+        bekleyenOdeme.dekont = dosya;
+        document.getElementById('odeme-dekont-adi').innerText = dosya.name;
+    });
 
     const baglantiTestBtn = document.getElementById('github-baglanti-test-btn');
     const baglantiStatus = document.getElementById('github-baglanti-status');
@@ -1583,7 +1680,7 @@ async function sendMailToResident(daire, type) {
 
     // Ekstra Ödemeler
     ekstraOdemeler.forEach(e => {
-        const odendi = fiiliOdemeler.find(o => o.yil === yil && o.ay === e.ay && o.tur === 'ekstra' && o.tutar === e.tutar && o.odendi_mi === 1);
+        const odendi = fiiliOdemeler.find(o => o.ekstra_id === e.id && o.odendi_mi === 1);
         if (!odendi) {
             const gecikme = calculateGecikmeTazminati(e.tutar, yil, e.ay, false, null, 0);
             totalGecikme += gecikme;
