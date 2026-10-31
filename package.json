@@ -1,12 +1,12 @@
 {
   "name": "siteyonetimpaneli_ea",
   "version": "1.0.0",
-  "description": "",
+  "description": "Site yönetim paneli ve sakin portalı yayınlama uygulaması",
   "main": "main.js",
   "scripts": {
     "start": "electron . --enable-logging",
     "deploy": "gh-pages -d docs",
-    "build": "electron-builder --mac --win"
+    "build": "electron-builder --win"
   },
   "build": {
     "appId": "com.siteyonetimpaneli.ea",
@@ -14,25 +14,26 @@
     "directories": {
       "output": "release"
     },
-    "mac": {
-      "target": "dmg",
-      "icon": "build/icon.icns"
-    },
+    "npmRebuild": false,
     "win": {
       "target": "nsis",
-      "icon": "build/icon.ico"
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "shortcutName": "Site Yönetim Paneli"
     },
     "files": [
-      "**/*",
-      "!node_modules/gh-pages",
-      "!docs",
-      "!release",
+      "main.js",
+      "veri_koruma.js",
+      "github_yayin.js",
+      "portal_sifreleme.js",
+      "src/**/*",
       "!src/js/*.map"
     ],
     "asar": true
   },
   "keywords": [],
-  "author": "",
+  "author": "erdemalpar",
   "license": "ISC",
   "dependencies": {
     "acorn": "^8.17.0",
