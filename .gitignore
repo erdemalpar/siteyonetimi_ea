@@ -1,0 +1,12 @@
+node_modules/
+veritabani/
+*.log
+*.txt
+*.pyc
+.DS_Store
+debug_*.js
+test*.js
+release/
+dist/
+out/
+docs/data.json
